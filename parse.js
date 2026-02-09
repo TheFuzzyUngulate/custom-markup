@@ -1,20 +1,20 @@
 const TokenType = {
-    LINE_BREAK: 0,
-    PARAGRAPH_BREAK: 1,
-    ASTERISK: 2,
-    BACKQUOTE: 3,           // "`"
-    TILDE: 4,
-    UNDERLINE: 5,
-    HYPHEN: 6,
-    DOUBLE_HYPHEN: 7,       // "--"
-    TRIPLE_HYPHEN: 8,       // "---"
-    EQUALS_SEQ: 9,
-    LEFT_BRACK: 10,         // "["
-    DOUBLE_LEFT_BRACK: 11,  // "[["
-    RIGHT_BRACK: 12,        // "]"
-    DOUBLE_RIGHT_BRACK: 13, // "]]"
-    TEXT_SPAN: 14,          // well...
-    EOF: 15
+    EOF: 0,
+    LINE_BREAK: 1,
+    PARAGRAPH_BREAK: 2,
+    ASTERISK: 3,
+    BACKQUOTE: 4,           // "`"
+    TILDE: 5,
+    UNDERLINE: 6,
+    HYPHEN: 7,
+    DOUBLE_HYPHEN: 8,       // "--"
+    TRIPLE_HYPHEN: 9,       // "---"
+    EQUALS_SEQ: 10,
+    LEFT_BRACK: 11,         // "["
+    DOUBLE_LEFT_BRACK: 12,  // "[["
+    RIGHT_BRACK: 13,        // "]"
+    DOUBLE_RIGHT_BRACK: 14, // "]]"
+    TEXT_SPAN: 15,          // well...
 }
 
 function charIsSafe(char) {
