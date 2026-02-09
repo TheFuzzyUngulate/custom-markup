@@ -1,0 +1,27 @@
+* {
+    box-sizing: border-box;         /* Opera/IE 8+ */
+    -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+    -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+}
+
+.app {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: stretch;
+    background-color: black;
+    height: 100%;
+    padding: 20px;
+}
+
+#display {
+    background-color: white;
+    height: 100%;
+    width: calc(min(50vw, 500px));
+    overflow-y: scroll;
+}

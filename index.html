@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+        <div class="app">
+            <div id="display"></div>
+            <textarea id="mytxt">
+= this is a header
+== this is a smaller header
+
+This is a simple line.
+This is a follow-up to the simple line.
+
+=== this is an even smaller header
+
+**This is bolded**.
+*This is italicized.*
+***This is bolded and italicized.***
+**This is bolded, but *****this is bolded and italicized.***
+**This is bolded, but* this is italicized.*
+***This is bitalicized,* this is bolded,* and this is italicized.*
+****This is normal,* this is bitalicized,* this is bolded, and* this is italicized.*
+
+this is a new paragraph.
+
+--- this is a quote. don't quote me. actually, *do* quote me.
+--- this is immediately after a quote, so the delimiter is treated as just another line.
+However, it is converted to a nice-looking double em-dash by convention. Double-dashes are single em-dashes (--).
+This is an odd system since a triple em-dash would require five hyphens, and a quadruple would require seven and so on.
+To make it more user-friendly, I will use the same technique I used with the header equals-sign sequences and have all such sequences occupy a single token.
+Then the semantics of the single/double/triple and so on will be handled by the length of the token in code. Free semantics.
+
+--- this is another blockquote, though.
+
+this comes immediately after.
+
+== Things to do
+
+1) add automatic link parsing
+2) add list aliases "[]"
+3) add blockquote author field
+4) add code block && inline code spans
+5) add lists with multiple levels
+6) add definitions
+7) add tables
+8) add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
+9) add dropdown panels with aliases that trigger the dropdown once clicked.
+
+            </textarea>
+        </div>
+    </body>
+    <script type="module" src="app.js"></script>
+</html>
