@@ -7,14 +7,12 @@ const TokenType = {
     TILDE: 5,
     UNDERLINE: 6,
     HYPHEN: 7,
-    DOUBLE_HYPHEN: 8,       // "--"
-    TRIPLE_HYPHEN: 9,       // "---"
-    EQUALS_SEQ: 10,
-    LEFT_BRACK: 11,         // "["
-    DOUBLE_LEFT_BRACK: 12,  // "[["
-    RIGHT_BRACK: 13,        // "]"
-    DOUBLE_RIGHT_BRACK: 14, // "]]"
-    TEXT_SPAN: 15,          // well...
+    EQUALS_SEQ: 8,
+    LEFT_BRACK: 9 ,         // "["
+    DOUBLE_LEFT_BRACK: 10,  // "[["
+    RIGHT_BRACK: 11,        // "]"
+    DOUBLE_RIGHT_BRACK: 12, // "]]"
+    TEXT_SPAN: 13,          // well...
 }
 
 function charIsSafe(char) {
@@ -79,8 +77,6 @@ class Scanner {
         switch (char) {
             case null: return this.makeToken(TokenType.EOF);
 
-            case '`': return this.makeToken(TokenType.BACKQUOTE);
-
             case '\n':
                 if (this.peek() === '\n') {
                     this.advance();
@@ -88,16 +84,12 @@ class Scanner {
                 } return this.makeToken(TokenType.LINE_BREAK);
 
             case '*': return this.makeToken(TokenType.ASTERISK);
-            
             case '~': return this.makeToken(TokenType.TILDE);
+            case '`': return this.makeToken(TokenType.BACKQUOTE);
 
             case '-':
-                if (this.peek() === '-') {
+                while (this.peek() === '-') {
                     this.advance();
-                    if (this.peek() === '-') {
-                        this.advance();
-                        return this.makeToken(TokenType.TRIPLE_HYPHEN);
-                    } return this.makeToken(TokenType.DOUBLE_HYPHEN);
                 } return this.makeToken(TokenType.HYPHEN);
 
             case '=':
@@ -176,9 +168,11 @@ export class Parser {
 
     span(withEmph=true) {
         switch (this.consume().type) {
-            case TokenType.HYPHEN: return '-';
-            case TokenType.DOUBLE_HYPHEN: return '—';
-            case TokenType.TRIPLE_HYPHEN: return '——';
+            case TokenType.HYPHEN:
+                if (this.previous.text.length === 1) {
+                    return '-';
+                } else return '—'.repeat(this.previous.text.length -1);
+
             case TokenType.EQUALS_SEQ:
                 return this.previous.text;
             case TokenType.TEXT_SPAN:
