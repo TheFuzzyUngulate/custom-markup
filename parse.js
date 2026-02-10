@@ -234,9 +234,11 @@ export class Parser {
             case TokenType.EQUALS_SEQ:
                 this.consume();
                 return this.header();
-            case TokenType.TRIPLE_HYPHEN:
-                this.consume();
-                return this.blockquote();
+            case TokenType.HYPHEN:
+                if (this.next.text.length === 3) {
+                    this.consume();
+                    return this.blockquote();
+                } else return this.paragraph();
             default:
                 return this.paragraph();
         }
