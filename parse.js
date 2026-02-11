@@ -176,7 +176,7 @@ export class Parser {
 
             case TokenType.SPACE:
             case TokenType.WORD_SPAN:
-                res = this.span(true);
+                res = this.span({withEmph: true});
                 if (this.next.type === TokenType.ASTERISK) {
                     this.consume();
                     switch (level % 4) {
@@ -191,8 +191,9 @@ export class Parser {
         return '*'
     }
 
-    changeIfHref(text) {
-        let pref, suff;
+    changeIfHref() {
+        let pref, suff, inner;
+        let text = this.previous.text;
 
         if (isPunctuation(text[text.length - 1])) {
             pref = text.substr(0, text.length - 1);
@@ -202,20 +203,35 @@ export class Parser {
             suff = '';
         }
 
-        if (isValidURL(pref)) {
-            return `<a href=\"${pref}\">${pref}</a>${suff}`;
-        } else return text;
-    }
-
-    word(tok) {
-        if (tok.type === TokenType.WORD_SPAN) {
-            return this.changeIfHref(tok.text);
+        if (!isValidURL(pref)) {
+            return text;
         }
 
-        return tok.text;
+        if (this.next.type === TokenType.LEFT_BRACK) {
+            this.consume();
+            let rest = this.span({withLinks: false});
+            if (this.next.type === TokenType.RIGHT_BRACK) {
+                this.consume();
+                inner = rest;
+            }
+        }
+
+        if (inner === undefined) inner = pref;
+        if (!/^https?:\/\//.test(pref)) pref = "https://" + pref;
+        return `<a href=\"${pref}\">${inner}</a>${suff}`;
     }
 
-    span(withEmph=true) {
+    word(withLinks) {
+        if (withLinks) {
+            if (this.previous.type === TokenType.WORD_SPAN) {
+                return this.changeIfHref();
+            }
+        }
+
+        return this.previous.text;
+    }
+
+    span({withEmph=true, withLinks=true}) {
         switch (this.consume().type) {
             case TokenType.HYPHEN:
                 if (this.previous.text.length === 1) {
@@ -227,9 +243,10 @@ export class Parser {
 
             case TokenType.SPACE:
             case TokenType.WORD_SPAN: {
-                let res = this.word(this.previous);
+                let res = this.word(withLinks);
                 while (isTextType(this.next.type)) {
-                    res += this.word(this.consume());
+                    this.consume();
+                    res += this.word(withLinks);
                 }
                 return res;
             }
@@ -246,7 +263,7 @@ export class Parser {
         let result = '';
 
         for (;;) {
-            result += this.span(withEmph);
+            result += this.span({withEmph: withEmph});
             if (this.next.type === TokenType.EOF ||
                 this.next.type === TokenType.PARAGRAPH_BREAK ||
                 this.next.type === TokenType.LINE_BREAK) {
