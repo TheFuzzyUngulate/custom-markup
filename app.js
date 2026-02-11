@@ -7,7 +7,7 @@ textarea.addEventListener('input', (ev) => {
     const template = document.createElement("template");
     const markupParse = new Parser(textarea.value);
     
-    const str = markupParse.parse();
+    const str = markupParse.doc();
     console.log(str);
     template.innerHTML = str;
     display.replaceChildren(template.content);

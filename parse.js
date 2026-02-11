@@ -12,11 +12,16 @@ const TokenType = {
     DOUBLE_LEFT_BRACK: 10,  // "[["
     RIGHT_BRACK: 11,        // "]"
     DOUBLE_RIGHT_BRACK: 12, // "]]"
-    TEXT_SPAN: 13,          // well...
+    WORD_SPAN: 13,          // well...
+    SPACE: 14,
 }
 
 function charIsSafe(char) {
   return char !== null && !/^[\n*~\-=\[\]]$/.test(char);
+}
+
+function isTextType(type) {
+    return type === TokenType.WORD_SPAN || type === TokenType.SPACE;
 }
 
 class Token {
@@ -87,6 +92,11 @@ class Scanner {
             case '~': return this.makeToken(TokenType.TILDE);
             case '`': return this.makeToken(TokenType.BACKQUOTE);
 
+            case ' ':
+                while (this.peek() === ' ') {
+                    this.advance();
+                } return this.makeToken(TokenType.SPACE);
+
             case '-':
                 while (this.peek() === '-') {
                     this.advance();
@@ -118,7 +128,7 @@ class Scanner {
                         this.advance();
                     }
                     this.advance();
-                } return this.makeToken(TokenType.TEXT_SPAN);
+                } return this.makeToken(TokenType.WORD_SPAN);
         }
     }
 }
@@ -144,13 +154,14 @@ export class Parser {
             case TokenType.ASTERISK:
                 this.consume();
                 res = this.emph(level + 1);
-                if (this.next.type === TokenType.TEXT_SPAN) {
+                if (isTextType(this.next.type)) {
                     res += this.emph(level);
                 } else if (this.next.type === TokenType.ASTERISK) {
                     this.consume();
                 } return res;
 
-            case TokenType.TEXT_SPAN:
+            case TokenType.SPACE:
+            case TokenType.WORD_SPAN:
                 res = this.span(true);
                 if (this.next.type === TokenType.ASTERISK) {
                     this.consume();
@@ -175,10 +186,19 @@ export class Parser {
 
             case TokenType.EQUALS_SEQ:
                 return this.previous.text;
-            case TokenType.TEXT_SPAN:
-                return this.previous.text;
+
+            case TokenType.SPACE:
+            case TokenType.WORD_SPAN: {
+                let res = this.previous.text;
+                while (isTextType(this.next.type)) {
+                    res += this.consume().text;
+                }
+                return res;
+            }
+
             case TokenType.ASTERISK:
                 return withEmph ? this.emph(1) : this.span();
+            
             default:
                 return '';
         }
@@ -229,7 +249,6 @@ export class Parser {
     }
 
     block() {
-        console.log(this.next);
         switch (this.next.type) {
             case TokenType.EQUALS_SEQ:
                 this.consume();
@@ -244,7 +263,7 @@ export class Parser {
         }
     }
 
-    parse() {
+    doc() {
         let result = '';
         while (this.next.type !== TokenType.EOF) {
             result += this.block();
