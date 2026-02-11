@@ -17,12 +17,26 @@ const TokenType = {
 }
 
 function charIsSafe(char) {
-  return char !== null && !/^[\n*~\-=\[\]]$/.test(char);
+  return char !== null && !/^[ \n*~\-=\[\]]$/.test(char);
 }
 
 function isTextType(type) {
     return type === TokenType.WORD_SPAN || type === TokenType.SPACE;
 }
+
+function isPunctuation(char) {
+    return /^[!?\.,;:]$/.test(char);
+}
+
+function isValidURL(str) {
+    return /^(?:https?:\/\/|www\.)[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)+(?:\/.*)?$/.test(str);
+}
+
+// function isValidURL(url) {
+//     if (url.startsWith('www.')) {
+//         return URL.canParse('http://' + url);
+//     } else return URL.canParse(url);
+// }
 
 class Token {
     constructor(type, line, column, text) {
@@ -177,6 +191,30 @@ export class Parser {
         return '*'
     }
 
+    changeIfHref(text) {
+        let pref, suff;
+
+        if (isPunctuation(text[text.length - 1])) {
+            pref = text.substr(0, text.length - 1);
+            suff = text[text.length - 1];
+        } else {
+            pref = text;
+            suff = '';
+        }
+
+        if (isValidURL(pref)) {
+            return `<a href=\"${pref}\">${pref}</a>${suff}`;
+        } else return text;
+    }
+
+    word(tok) {
+        if (tok.type === TokenType.WORD_SPAN) {
+            return this.changeIfHref(tok.text);
+        }
+
+        return tok.text;
+    }
+
     span(withEmph=true) {
         switch (this.consume().type) {
             case TokenType.HYPHEN:
@@ -189,9 +227,9 @@ export class Parser {
 
             case TokenType.SPACE:
             case TokenType.WORD_SPAN: {
-                let res = this.previous.text;
+                let res = this.word(this.previous);
                 while (isTextType(this.next.type)) {
-                    res += this.consume().text;
+                    res += this.word(this.consume());
                 }
                 return res;
             }
