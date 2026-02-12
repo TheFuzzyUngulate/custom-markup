@@ -9,15 +9,13 @@ const TokenType = {
     HYPHEN: 7,
     EQUALS_SEQ: 8,
     LEFT_BRACK: 9 ,         // "["
-    DOUBLE_LEFT_BRACK: 10,  // "[["
-    RIGHT_BRACK: 11,        // "]"
-    DOUBLE_RIGHT_BRACK: 12, // "]]"
-    WORD_SPAN: 13,          // well...
-    SPACE: 14,
+    RIGHT_BRACK: 10,        // "]"
+    WORD_SPAN: 11,          // well...
+    SPACE: 12,
 }
 
 function charIsSafe(char) {
-  return char !== null && !/^[ \n*~\-=\[\]]$/.test(char);
+  return char !== null && !/^[ \n*~`\[\]]$/.test(char);
 }
 
 function isTextType(type) {
@@ -105,6 +103,8 @@ class Scanner {
             case '*': return this.makeToken(TokenType.ASTERISK);
             case '~': return this.makeToken(TokenType.TILDE);
             case '`': return this.makeToken(TokenType.BACKQUOTE);
+            case '[': return this.makeToken(TokenType.LEFT_BRACK);
+            case ']': return this.makeToken(TokenType.RIGHT_BRACK);
 
             case ' ':
                 while (this.peek() === ' ') {
@@ -123,18 +123,6 @@ class Scanner {
                     } this.advance();
                 }
                 break;
-
-            case '[':
-                if (this.peek() === '[') {
-                    this.advance();
-                    return this.makeToken(TokenType.DOUBLE_LEFT_BRACK);
-                } return this.makeToken(TokenType.LEFT_BRACK);
-
-            case ']':
-                if (this.peek() === ']') {
-                    this.advance();
-                    return this.makeToken(TokenType.DOUBLE_RIGHT_BRACK);
-                } return this.makeToken(TokenType.RIGHT_BRACK);
 
             default:
                 while (charIsSafe(this.peek())) {
@@ -155,40 +143,14 @@ export class Parser {
         this.next = this.scanner.scan();
     }
 
+    check(type) {
+        return this.next.type === type;
+    }
+
     consume() {
         this.previous = this.next;
         this.next = this.scanner.scan();
         return this.previous;
-    }
-
-    emph(level) {
-        let res = '';
-
-        switch (this.next.type) {
-            case TokenType.ASTERISK:
-                this.consume();
-                res = this.emph(level + 1);
-                if (isTextType(this.next.type)) {
-                    res += this.emph(level);
-                } else if (this.next.type === TokenType.ASTERISK) {
-                    this.consume();
-                } return res;
-
-            case TokenType.SPACE:
-            case TokenType.WORD_SPAN:
-                res = this.span({withEmph: true});
-                if (this.next.type === TokenType.ASTERISK) {
-                    this.consume();
-                    switch (level % 4) {
-                        case 1: return `<i>${res}</i>`;
-                        case 2: return `<b>${res}</b>`;
-                        case 3: return `<b><i>${res}</i></b>`;
-                        case 0: return res;
-                    }
-                } else return `*${res}`
-        }
-
-        return '*'
     }
 
     changeIfHref() {
@@ -207,10 +169,10 @@ export class Parser {
             return text;
         }
 
-        if (this.next.type === TokenType.LEFT_BRACK) {
+        if (this.check(TokenType.LEFT_BRACK)) {
             this.consume();
-            let rest = this.span({withLinks: false});
-            if (this.next.type === TokenType.RIGHT_BRACK) {
+            let rest = this.text2({takesURLs: false});
+            if (this.check(TokenType.RIGHT_BRACK)) {
                 this.consume();
                 inner = rest;
             }
@@ -221,98 +183,326 @@ export class Parser {
         return `<a href=\"${pref}\">${inner}</a>${suff}`;
     }
 
-    word(withLinks) {
-        if (withLinks) {
-            if (this.previous.type === TokenType.WORD_SPAN) {
-                return this.changeIfHref();
-            }
-        }
-
-        return this.previous.text;
-    }
-
-    span({withEmph=true, withLinks=true}) {
-        switch (this.consume().type) {
-            case TokenType.HYPHEN:
-                if (this.previous.text.length === 1) {
-                    return '-';
-                } else return '—'.repeat(this.previous.text.length -1);
-
-            case TokenType.EQUALS_SEQ:
-                return this.previous.text;
-
-            case TokenType.SPACE:
-            case TokenType.WORD_SPAN: {
-                let res = this.word(withLinks);
-                while (isTextType(this.next.type)) {
-                    this.consume();
-                    res += this.word(withLinks);
-                }
-                return res;
-            }
-
-            case TokenType.ASTERISK:
-                return withEmph ? this.emph(1) : this.span();
-            
-            default:
-                return '';
-        }
-    }
-
-    line(withEmph=true) {
-        let result = '';
+    text0({takesURLs=true}) {
+        let res = '';
 
         for (;;) {
-            result += this.span({withEmph: withEmph});
-            if (this.next.type === TokenType.EOF ||
-                this.next.type === TokenType.PARAGRAPH_BREAK ||
-                this.next.type === TokenType.LINE_BREAK) {
-                return `<div>${result}</div>`;
+            console.log("text0", this.next);
+            switch (this.next.type) {
+                case TokenType.WORD_SPAN:
+                    this.consume();
+                    if (takesURLs) {
+                        res += this.changeIfHref();
+                    } else {
+                        res += this.previous.text;
+                    }
+                    break;
+
+                case TokenType.TILDE:
+                case TokenType.SPACE:
+                    this.consume();
+                    res += this.previous.text;
+                    break;
+
+                case TokenType.HYPHEN:
+                    this.consume();
+                    if (this.previous.text.length > 1) {
+                        res += '—'.repeat(this.previous.text.length -1);
+                    } else res += '-';
+                    break;
+
+                case TokenType.EQUALS_SEQ:
+                    this.consume();
+                    res += this.previous.text;
+                    break;
+
+                default:
+                    return res;
             }
         }
+    }
+
+    code() {
+        // there's a problem here.
+        // we want `code` to be able to include any symbol as long as
+        // it's not a line break or paragraph break
+
+        // this means that we don't actually want text0 here. we want
+        // a separate level that accepts all characters as long as
+        // they don't break a line or a paragraph.
+
+        // however, if our ending backquote delimiter doesn't show, we
+        // want to be able to parse the rest as normal, like we usually
+        // do. so, instead, we need all possible syntactic elements to
+        // have switches, so that we can call text4 and it'll accept
+        // all of them but render them as plain text.
+        
+        // therefore, we need `takesCode` and `takesBracketed`.
+        // later, though.
+
+        let res = this.text0({takesURLs: false});
+        console.log(res, this.next, this.previous);
+        if (this.next.type === TokenType.BACKQUOTE) {
+            this.consume();
+            return `<code>${res}</code>`;
+        } else {
+            return `\`${res}`;
+        }
+    }
+
+    text1({takesURLs=true}) {
+        let res = '';
+
+        for (;;) {
+            console.log("text1", this.next);
+            switch (this.next.type) {
+                case TokenType.BACKQUOTE:
+                    this.consume();
+                    res += this.code();
+                    break;
+
+                case TokenType.SPACE:
+                case TokenType.WORD_SPAN:
+                case TokenType.HYPHEN:
+                case TokenType.TILDE:
+                case TokenType.EQUALS_SEQ:
+                    res += this.text0({takesURLs: takesURLs});
+                    break;    
+
+                default:
+                    return res;
+            }
+        }
+    }
+
+    emph({takesURLs=true, level=1}) {
+        let res = ''
+
+        switch (this.next.type) {
+            case TokenType.BACKQUOTE:
+            case TokenType.TILDE:
+            case TokenType.SPACE:
+            case TokenType.WORD_SPAN:
+            case TokenType.HYPHEN:
+            case TokenType.EQUALS_SEQ:
+                res += this.text1({takesURLs: takesURLs});
+                if (this.check(TokenType.ASTERISK)) {
+                    this.consume();
+                    switch (level % 4) {
+                        case 1: return `<i>${res}</i>`;
+                        case 2: return `<b>${res}</b>`;
+                        case 3: return `<b><i>${res}</i></b>`;
+                        case 0: return res;
+                    }
+                } else return `*${res}`
+
+            case TokenType.ASTERISK:
+                this.consume();
+                res += this.emph({
+                    level: level + 1,
+                    takesURLs: takesURLs
+                });
+                switch (this.next.type) {
+                    case TokenType.BACKQUOTE:
+                    case TokenType.SPACE:
+                    case TokenType.WORD_SPAN:
+                        res += this.emph({
+                            level: level, 
+                            takesURLs: takesURLs
+                        });
+                        break;
+                    case TokenType.ASTERISK:
+                        this.consume();
+                        break;
+                }
+                return res;
+        }
+
+        return '*';
+    }
+
+    text2({takesEmph=true, takesURLs=true}) {
+        let res = '';
+
+        for (;;) {
+            console.log("text2", this.next);
+            switch (this.next.type) {
+                case TokenType.BACKQUOTE:
+                case TokenType.SPACE:
+                case TokenType.TILDE:
+                case TokenType.WORD_SPAN:
+                case TokenType.HYPHEN:
+                case TokenType.EQUALS_SEQ:
+                    res += this.text1({takesURLs: takesURLs});
+                    break;
+
+                case TokenType.ASTERISK:
+                    if (takesEmph) {
+                        this.consume();
+                        res += this.emph({takesURLs: takesURLs});
+                    } else res += this.text1({takesURLs: takesURLs});
+                    break;
+
+                default:
+                    return res;
+            }
+        }
+    }
+
+    bracketed({takesEmph=true, takesURLs=true, context=''}) {
+        let res = this.text2({
+            takesURLs: takesURLs,
+            takesEmph: takesEmph
+        });
+
+        if (this.next.type === TokenType.RIGHT_BRACK) {
+            this.consume();
+            switch (context) {
+                case 'blockquote':
+                    if (this.check(TokenType.EOF) ||
+                        this.check(TokenType.PARAGRAPH_BREAK)) {
+                        return `<p class="quote-cit">${res}</p>`;
+                    }
+                    break;
+            }
+
+            return `<span class="func">${res}</span>`;
+        }
+
+        return `[${res}`;
+    }
+
+    text3({takesEmph=true, takesURLs=true}) {
+        let res = '';
+
+        for (;;) {
+            switch (this.next.type) {
+                case TokenType.BACKQUOTE:
+                case TokenType.SPACE:
+                case TokenType.TILDE:
+                case TokenType.WORD_SPAN:
+                case TokenType.ASTERISK:
+                case TokenType.HYPHEN:
+                case TokenType.EQUALS_SEQ:
+                    res += this.text2({
+                        takesURLs: takesURLs,
+                        takesEmph: takesEmph
+                    });
+                    break;
+
+                case TokenType.LEFT_BRACK:
+                    this.consume();
+                    res += this.bracketed({
+                        takesEmph: takesEmph,
+                        takesURLs: takesURLs
+                    });
+                    break;
+                
+                case TokenType.RIGHT_BRACK:
+                    res += ']';
+                    break;
+
+                default:
+                    return res;
+            }
+        }
+    }
+
+    line({takesEmph=true, takesURLs=true}) {
+        let res = '';
+
+        while (!this.check(TokenType.EOF) &&
+               !this.check(TokenType.PARAGRAPH_BREAK) &&
+               !this.check(TokenType.LINE_BREAK)) {
+            res += this.text3({
+                takesEmph: takesEmph,
+                takesURLs: takesURLs
+            });
+        }
+
+        return `<div>${res}</div>`;
     }
 
     paragraph() {
-        let result = '';
+        let res = '';
 
         for (;;) {
-            result += this.line(true);
-            if (this.next.type === TokenType.LINE_BREAK) {
-                this.consume();
-            } else if (this.next.type === TokenType.EOF) {
-                return result;
-            } else if (this.next.type === TokenType.PARAGRAPH_BREAK) {
-                this.consume();
-                return `${result}<br>`;
+            res += this.line({});
+            switch (this.next.type) {
+                case TokenType.LINE_BREAK:
+                    this.consume();
+                    break;
+
+                case TokenType.EOF:
+                    return res;
+
+                case TokenType.PARAGRAPH_BREAK:
+                    this.consume();
+                    return `${res}<br>`;
             }
         }
     }
 
     blockquote() {
-        return `<blockquote>${this.paragraph()}</blockquote>`;
+        let res = '';
+
+        for (;;) {
+            res += this.text2({});
+            switch (this.next.type) {
+                case TokenType.EOF:
+                    return `<blockquote>${res}</blockquote>`;
+
+                case TokenType.LINE_BREAK:
+                    this.consume();
+                    res += '<br>';
+                    break;
+
+                case TokenType.PARAGRAPH_BREAK:
+                    this.consume();
+                    return `<blockquote>${res}</blockquote>`;
+
+                case TokenType.LEFT_BRACK: {
+                    this.consume();
+                    let rest = this.bracketed({context: 'blockquote'});
+                    if ((this.check(TokenType.EOF) ||
+                        this.check(TokenType.PARAGRAPH_BREAK)) &&
+                        this.previous.type === TokenType.RIGHT_BRACK) {
+                        this.consume();
+                        return `<blockquote>\
+                                    ${res}\
+                                    ${rest}\
+                                </blockquote>`;
+                    }
+                    res += rest;
+                    break;
+                }
+            }
+        }
     }
 
-    header() {
-        let delim = `h${this.previous.text.length}`;
-
+    header(len) {
         let result = this.line(false);
-        if (this.next.type === TokenType.LINE_BREAK) {
+        if (this.check(TokenType.LINE_BREAK)) {
             this.consume();
         }
 
-        return `<${delim}>${result}</${delim}>`;
+        return `<h${len}>${result}</h${len}>`;
     }
 
     block() {
         switch (this.next.type) {
-            case TokenType.EQUALS_SEQ:
+            case TokenType.EQUALS_SEQ: {
+                let len = this.next.text.length;
                 this.consume();
-                return this.header();
+                return this.header(len);
+            }
+
             case TokenType.HYPHEN:
                 if (this.next.text.length === 3) {
                     this.consume();
                     return this.blockquote();
                 } else return this.paragraph();
+                
             default:
                 return this.paragraph();
         }

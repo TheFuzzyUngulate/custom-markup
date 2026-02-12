@@ -25,3 +25,14 @@ body {
     width: calc(min(50vw, 500px));
     overflow-y: scroll;
 }
+
+.quote-cit {
+    margin-top: 5px;
+    text-align: right;
+    margin-right: 10px;
+}
+
+.quote-cit::before {
+    content: "\2014        ";
+    color: red;
+}
