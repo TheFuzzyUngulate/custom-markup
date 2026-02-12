@@ -5,13 +5,14 @@ const TokenType = {
     ASTERISK: 3,
     BACKQUOTE: 4,           // "`"
     TILDE: 5,
-    UNDERLINE: 6,
+    PLUS: 6,
     HYPHEN: 7,
     EQUALS_SEQ: 8,
     LEFT_BRACK: 9 ,         // "["
     RIGHT_BRACK: 10,        // "]"
     WORD_SPAN: 11,          // well...
     SPACE: 12,
+    TRIPLE_BQ: 13,
 }
 
 function charIsSafe(char) {
@@ -29,12 +30,6 @@ function isPunctuation(char) {
 function isValidURL(str) {
     return /^(?:https?:\/\/|www\.)[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)+(?:\/.*)?$/.test(str);
 }
-
-// function isValidURL(url) {
-//     if (url.startsWith('www.')) {
-//         return URL.canParse('http://' + url);
-//     } else return URL.canParse(url);
-// }
 
 class Token {
     constructor(type, line, column, text) {
@@ -57,6 +52,12 @@ class Scanner {
     peek() {
         if (this.current < this.text.length) {
             return this.text[this.current];
+        } return null;
+    }
+
+    peekNext() {
+        if (this.current + 1 < this.text.length) {
+            return this.text[this.current + 1];
         } return null;
     }
 
@@ -100,11 +101,18 @@ class Scanner {
                     return this.makeToken(TokenType.PARAGRAPH_BREAK);
                 } return this.makeToken(TokenType.LINE_BREAK);
 
-            case '*': return this.makeToken(TokenType.ASTERISK);
+            case '+': return this.makeToken(TokenType.PLUS);
             case '~': return this.makeToken(TokenType.TILDE);
-            case '`': return this.makeToken(TokenType.BACKQUOTE);
+            case '*': return this.makeToken(TokenType.ASTERISK);
             case '[': return this.makeToken(TokenType.LEFT_BRACK);
             case ']': return this.makeToken(TokenType.RIGHT_BRACK);
+            
+            case '`': 
+                if (this.peek() === '`' && this.peekNext() === '`') {
+                    this.advance();
+                    this.advance();
+                    return this.makeToken(TokenType.TRIPLE_BQ);
+                } else return this.makeToken(TokenType.BACKQUOTE);
 
             case ' ':
                 while (this.peek() === ' ') {
@@ -141,16 +149,27 @@ export class Parser {
         this.scanner = new Scanner(text);
         this.previous = null;
         this.next = this.scanner.scan();
+        this.pendingTokens = [];
     }
 
     check(type) {
-        return this.next.type === type;
+        if (this.pendingTokens.length > 0) {
+            return this.pendingTokens[0].type;
+        } else return this.next.type === type;
     }
 
     consume() {
         this.previous = this.next;
-        this.next = this.scanner.scan();
+
+        if (this.pendingTokens.length > 0) {
+            this.next = this.pendingTokens.shift();
+        } else this.next = this.scanner.scan();
+
         return this.previous;
+    }
+
+    styleText(text) {
+        return text.replace(/\-(\-)+/, (m) => '—'.repeat(m.length - 1));
     }
 
     changeIfHref() {
@@ -166,7 +185,7 @@ export class Parser {
         }
 
         if (!isValidURL(pref)) {
-            return text;
+            return this.styleText(text);
         }
 
         if (this.check(TokenType.LEFT_BRACK)) {
@@ -180,21 +199,20 @@ export class Parser {
 
         if (inner === undefined) inner = pref;
         if (!/^https?:\/\//.test(pref)) pref = "https://" + pref;
-        return `<a href=\"${pref}\">${inner}</a>${suff}`;
+        return `<a href=\"${pref}\">${this.styleText(inner)}</a>${suff}`;
     }
 
     text0({takesURLs=true}) {
         let res = '';
 
         for (;;) {
-            console.log("text0", this.next);
             switch (this.next.type) {
                 case TokenType.WORD_SPAN:
                     this.consume();
                     if (takesURLs) {
                         res += this.changeIfHref();
                     } else {
-                        res += this.previous.text;
+                        res += this.styleText(this.previous.text);
                     }
                     break;
 
@@ -206,9 +224,7 @@ export class Parser {
 
                 case TokenType.HYPHEN:
                     this.consume();
-                    if (this.previous.text.length > 1) {
-                        res += '—'.repeat(this.previous.text.length -1);
-                    } else res += '-';
+                    res += this.styleText(this.previous.text);
                     break;
 
                 case TokenType.EQUALS_SEQ:
@@ -237,26 +253,59 @@ export class Parser {
         // have switches, so that we can call text4 and it'll accept
         // all of them but render them as plain text.
         
-        // therefore, we need `takesCode` and `takesBracketed`.
-        // later, though.
+        // but these other levels do not terminate when they encounter
+        // a backquote delimiter, since they regard it as a lower level.
+        // one solution is to use a flag. another solution is to store
+        // the tokens somewhere and, if a failure occurs, allow the
+        // algorithm to use the tokens again, as if they were never
+        // omitted. the latter is cleaner.
 
-        let res = this.text0({takesURLs: false});
-        console.log(res, this.next, this.previous);
-        if (this.next.type === TokenType.BACKQUOTE) {
+        let tokens = [];
+        let lastPrevious = this.previous;
+
+        while (!this.check(TokenType.EOF) &&
+               !this.check(TokenType.BACKQUOTE) &&
+               !this.check(TokenType.TRIPLE_BQ) &&
+               !this.check(TokenType.LINE_BREAK) &&
+               !this.check(TokenType.PARAGRAPH_BREAK)) {
             this.consume();
-            return `<code>${res}</code>`;
-        } else {
-            return `\`${res}`;
+            tokens.push(this.previous);
         }
+
+        if (this.check(TokenType.BACKQUOTE) || 
+            this.check(TokenType.TRIPLE_BQ)) {
+            let string = tokens.map(tok => tok.text).join('');
+            this.consume();
+            return `<code>${string}</code>`;
+        }
+        
+        // here, the `pendingTokens` list is set up to perfectly
+        // simulate the sequence of outputs of `scanner.scan()` after
+        // what the previous was. so, whatever `next` is after the loop
+        // above must be after everything in the list (since it's the
+        // token that's the next be consumed, after them). It's already
+        // been scanned, so you have to put it to the back of the
+        // pendingList. also, you have to set the head of the list as
+        // `this.next`, as it was when `lastPrevious` was previous.
+
+        this.previous = lastPrevious;
+        if (tokens.length > 0) {
+            let tmp = this.next;
+            this.next = tokens.shift();
+            tokens.push(tmp);
+            tokens.forEach(tok => this.pendingTokens.push(tok));
+        }
+
+        return '`';
     }
 
     text1({takesURLs=true}) {
         let res = '';
 
         for (;;) {
-            console.log("text1", this.next);
             switch (this.next.type) {
                 case TokenType.BACKQUOTE:
+                case TokenType.TRIPLE_BQ:
                     this.consume();
                     res += this.code();
                     break;
@@ -279,7 +328,8 @@ export class Parser {
         let res = ''
 
         switch (this.next.type) {
-            case TokenType.BACKQUOTE:
+            case TokenType.BACKQUOTE:    
+            case TokenType.TRIPLE_BQ:
             case TokenType.TILDE:
             case TokenType.SPACE:
             case TokenType.WORD_SPAN:
@@ -304,6 +354,7 @@ export class Parser {
                 });
                 switch (this.next.type) {
                     case TokenType.BACKQUOTE:
+                    case TokenType.TRIPLE_BQ:
                     case TokenType.SPACE:
                     case TokenType.WORD_SPAN:
                         res += this.emph({
@@ -325,9 +376,9 @@ export class Parser {
         let res = '';
 
         for (;;) {
-            console.log("text2", this.next);
             switch (this.next.type) {
                 case TokenType.BACKQUOTE:
+                case TokenType.TRIPLE_BQ:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
                 case TokenType.WORD_SPAN:
@@ -378,6 +429,7 @@ export class Parser {
         for (;;) {
             switch (this.next.type) {
                 case TokenType.BACKQUOTE:
+                case TokenType.TRIPLE_BQ:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
                 case TokenType.WORD_SPAN:
@@ -489,6 +541,66 @@ export class Parser {
         return `<h${len}>${result}</h${len}>`;
     }
 
+    codeblock() {
+        // the logic dictating how this works is identical to that of
+        // `code`, except that there are far less delimiters to check,
+        // and it can only be canceled by '```'.
+
+        // moreover, since we want to be able to treat our delimiter as
+        // a sequence of backquotes if this fails, we do not consume the
+        // triple-backquote token on our way to this function. so at
+        // function start, `this.previous` is the token before it, and
+        // it should be restored to that value. the triple-backquote is
+        // restored with everything else on fail. however, to avoid an
+        // infinite recursion, `codeblock` actually returns by calling
+        // `paragraph()`.
+
+        let tokens = [];
+        let lastPrevious = this.previous;
+
+        // as explained, `this.previous` at this point is the token
+        // preceding the triple-backquote, and we need to store the
+        // backquote first and consume it so that the search for the
+        // closing triple-backquote isn't trivial.
+
+        this.consume();
+        tokens.push(this.previous);
+
+        // having pushed the starting delimiter, our logic should work
+        // fine from hereon out. loop to find the closing delimiter or
+        // EOF. if the closing delimiter is found, then the raw text of
+        // the tokens are placed in a <code> tag within a <pre> tag, no
+        // harm done. otherwise, everything is pushed to the pending
+        // array to be re-processed, though as a paragraph.
+
+        while (!this.check(TokenType.EOF) &&
+               !this.check(TokenType.TRIPLE_BQ)) {
+            this.consume();
+            tokens.push(this.previous);
+        }
+
+        // the only reason that tokens.shift() is required is because
+        // we don't want to have the starting delimiter, which was
+        // placed in `tokens`, to appear.
+
+        if (this.check(TokenType.TRIPLE_BQ)) {
+            tokens.shift();
+            let string = tokens.map(tok => tok.text).join('');
+            this.consume();
+            return `<pre><code>${string}</code></pre>`;
+        }
+
+        this.previous = lastPrevious;
+        if (tokens.length > 0) {
+            let tmp = this.next;
+            this.next = tokens.shift();
+            tokens.push(tmp);
+            tokens.forEach(tok => this.pendingTokens.push(tok));
+        }
+
+        return this.paragraph();
+    }
+
     block() {
         switch (this.next.type) {
             case TokenType.EQUALS_SEQ: {
@@ -496,6 +608,9 @@ export class Parser {
                 this.consume();
                 return this.header(len);
             }
+
+            case TokenType.TRIPLE_BQ:
+                return this.codeblock();
 
             case TokenType.HYPHEN:
                 if (this.next.text.length === 3) {
