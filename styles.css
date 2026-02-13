@@ -5,6 +5,12 @@
     -moz-box-sizing: border-box;    /* Firefox, other Gecko */
 }
 
+/* Frame */
+
+body {
+    margin: 0;
+}
+
 .app {
     height: 100vh;
     display: flex;
@@ -60,13 +66,46 @@
     width: 100%;
     height: 100%;
     overflow-y: scroll;
+    font-family: 'Consolas';
+    font-size: 16px;
+    resize: none;
 }
 
 .tab-body .preview-display {
+    display: flex;
+    flex-direction: column;
+    row-gap: 10px;
     width: 100%;
     height: 100%;
     background-color: white;
     overflow-y: scroll;
+    padding: 15px;
+}
+
+.segment {
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif
+}
+
+/* Markdown elements */
+
+.quote-cit {
+    margin-top: 5px;
+    text-align: right;
+    margin-right: 10px;
+}
+
+.quote-cit::before {
+    content: "\2014\0009\0009";
+    color: red;
+}
+
+pre {
+    margin: 0;
+}
+
+blockquote {
+    margin-left: 2em;
+    /* font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif */
 }
 
 @media only screen and (max-width: 600px) {

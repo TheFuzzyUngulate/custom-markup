@@ -4,7 +4,7 @@ const def_inpt = `
 = this is a header
 == this is a smaller header
 
-this is a simple line.
+this is a simple line. \\[\\]
 this is a follow-up to the simple line.
 
 === this is an even smaller header
@@ -51,11 +51,13 @@ everything here looks cool.
 3) add blockquote author field -- **done!!**
 4) add inline code spans -- **done!!**
 5) add code blocks -- **done!!**
-6) add lists with multiple levels
-7) add definitions
-8) add tables
-9) add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
-10) add dropdown panels with aliases that trigger the dropdown once clicked.`
+6) add character escapes -- **done!!**
+7) add lists with multiple levels
+8) add a line break escape character for within lists and the like. \`"..."\`
+8) add definitions
+9) add tables
+10) add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
+11) add dropdown panels with aliases that trigger the dropdown once clicked.`
 
 const textarea = document.querySelector(".tab-body textarea");
 const prev_dsp = document.querySelector(".tab-body .preview-display");

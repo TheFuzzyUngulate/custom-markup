@@ -16,11 +16,11 @@ const TokenType = {
 }
 
 function charIsSafe(char) {
-  return char !== null && !/^[ \n*~`\[\]]$/.test(char);
+  return char !== null && !/^[ \n*~`\\\[\]]$/.test(char);
 }
 
-function isTextType(type) {
-    return type === TokenType.WORD_SPAN || type === TokenType.SPACE;
+function charIsSpace(char) {
+    return char !== null && /^\s$/.test(char);
 }
 
 function isPunctuation(char) {
@@ -132,11 +132,16 @@ class Scanner {
                 }
                 break;
 
+            // this is how escape characters are made.
+            // anything can be cancelled as long as it isn't a space.
+
+            case '\\':
+                if (!charIsSpace(this.peek())) {
+                    this.advance();
+                } return this.makeToken(TokenType.WORD_SPAN); 
+
             default:
                 while (charIsSafe(this.peek())) {
-                    if (this.peek() === '\\') {
-                        this.advance();
-                    }
                     this.advance();
                 } return this.makeToken(TokenType.WORD_SPAN);
         }
@@ -169,7 +174,9 @@ export class Parser {
     }
 
     styleText(text) {
-        return text.replace(/\-(\-)+/, (m) => '—'.repeat(m.length - 1));
+        console.log(text);
+        return text.replace(/\\(?=.)/, "")
+                   .replace(/\-(\-)+/, (m) => '—'.repeat(m.length - 1));
     }
 
     changeIfHref() {
@@ -451,6 +458,7 @@ export class Parser {
                     break;
                 
                 case TokenType.RIGHT_BRACK:
+                    this.consume();
                     res += ']';
                     break;
 
@@ -490,7 +498,7 @@ export class Parser {
 
                 case TokenType.PARAGRAPH_BREAK:
                     this.consume();
-                    return `${res}<br>`;
+                    return res;
             }
         }
     }
@@ -582,9 +590,15 @@ export class Parser {
         // the only reason that tokens.shift() is required is because
         // we don't want to have the starting delimiter, which was
         // placed in `tokens`, to appear.
+        // furthermore, we would like to allow a single linebreak
+        // after the starting delimiter for aesthetic reasons.
 
         if (this.check(TokenType.TRIPLE_BQ)) {
             tokens.shift();
+            if (tokens[0].type === TokenType.LINE_BREAK) {
+                tokens.shift();
+            }
+
             let string = tokens.map(tok => tok.text).join('');
             this.consume();
             return `<pre><code>${string}</code></pre>`;
@@ -602,25 +616,43 @@ export class Parser {
     }
 
     block() {
+        let res = '';
+
         switch (this.next.type) {
+            case TokenType.LINE_BREAK:
+            case TokenType.PARAGRAPH_BREAK:
+                this.consume();
+                return '';
+
             case TokenType.EQUALS_SEQ: {
                 let len = this.next.text.length;
                 this.consume();
-                return this.header(len);
+                res = this.header(len);
+                break;
             }
 
             case TokenType.TRIPLE_BQ:
-                return this.codeblock();
+                res = this.codeblock();
+                break;
 
             case TokenType.HYPHEN:
                 if (this.next.text.length === 3) {
                     this.consume();
-                    return this.blockquote();
-                } else return this.paragraph();
+                    res = this.blockquote();
+                } else res = this.paragraph();
+                break;
                 
             default:
-                return this.paragraph();
+                res = this.paragraph();
+                break;
         }
+
+        // this "segment" business, as it turns out,
+        // is necessary for spacing to work like i want it.
+        // now that it's out of the way, we can make the margin
+        // of everything 
+
+        return `<div class="segment">${res}</div>`;
     }
 
     doc() {
