@@ -4,15 +4,15 @@ const TokenType = {
     WORD_SPAN: 2,
     LINE_BREAK: 3,
     PARAGRAPH_BREAK: 4,
-    ASTERISK: 5,
-    BACKQUOTE: 6,
-    TRIPLE_BQ: 7,
-    ELLIPSIS: 8,
+    EMPH_SYMB: 5,
+    INCODE_SYMB: 6,
+    CODEBLOCK_SYMB: 7,
+    NL_ESCAPE: 8,
     TILDE: 9,
-    PLUS: 10,
-    HASHTAG: 11,
+    UL_SYMB: 10,
+    OL_SYMB: 11,
     HYPHEN: 12,
-    EQUALS_SEQ: 13,
+    HEADER_SYMB: 13,
     
     LEFT_BRACK: 14,
     RIGHT_BRACK: 15,
@@ -105,7 +105,7 @@ class Scanner {
                 } return this.makeToken(TokenType.LINE_BREAK);
 
             case '~': return this.makeToken(TokenType.TILDE);
-            case '*': return this.makeToken(TokenType.ASTERISK);
+            case '*': return this.makeToken(TokenType.EMPH_SYMB);
             case '[': return this.makeToken(TokenType.LEFT_BRACK);
             case ']': return this.makeToken(TokenType.RIGHT_BRACK);
             
@@ -113,14 +113,14 @@ class Scanner {
                 if (this.peek() === '`' && this.peekNext() === '`') {
                     this.advance();
                     this.advance();
-                    return this.makeToken(TokenType.TRIPLE_BQ);
-                } else return this.makeToken(TokenType.BACKQUOTE);
+                    return this.makeToken(TokenType.CODEBLOCK_SYMB);
+                } else return this.makeToken(TokenType.INCODE_SYMB);
             
             case '.': 
                 if (this.peek() === '.' && this.peekNext() === '.') {
                     this.advance();
                     this.advance();
-                    return this.makeToken(TokenType.ELLIPSIS);
+                    return this.makeToken(TokenType.NL_ESCAPE);
                 } else return this.makeToken(TokenType.WORD_SPAN);
 
             case ' ':
@@ -132,14 +132,14 @@ class Scanner {
                 while (this.peek() === '+') this.advance();
                 if (this.peek() === ' ') {
                     this.advance();
-                    return this.makeToken(TokenType.PLUS);
+                    return this.makeToken(TokenType.UL_SYMB);
                 } else return this.makeToken(TokenType.WORD_SPAN);
 
             case '#': 
                 while (this.peek() === '#') this.advance();
                 if (this.peek() === ' ') {
                     this.advance();
-                    return this.makeToken(TokenType.HASHTAG);
+                    return this.makeToken(TokenType.OL_SYMB);
                 } else return this.makeToken(TokenType.WORD_SPAN);
 
             case '-':
@@ -150,7 +150,7 @@ class Scanner {
             case '=':
                 for (let i = 0; i < 4; i++) {
                     if (this.peek() !== '=') {
-                        return this.makeToken(TokenType.EQUALS_SEQ);
+                        return this.makeToken(TokenType.HEADER_SYMB);
                     } this.advance();
                 } return this.makeToken(TokenType.WORD_SPAN);
 
@@ -282,14 +282,14 @@ export class Parser {
                     }
                     break;
                     
-                case TokenType.ELLIPSIS:
+                case TokenType.NL_ESCAPE:
                     res += this.ellipsis();
                     break;
 
                 case TokenType.TILDE:
                 case TokenType.SPACE:
-                case TokenType.PLUS:
-                case TokenType.HASHTAG:
+                case TokenType.UL_SYMB:
+                case TokenType.OL_SYMB:
                     this.consume();
                     res += this.previous.text;
                     break;
@@ -299,7 +299,7 @@ export class Parser {
                     res += this.styleText(this.previous.text);
                     break;
 
-                case TokenType.EQUALS_SEQ:
+                case TokenType.HEADER_SYMB:
                     this.consume();
                     res += this.previous.text;
                     break;
@@ -336,16 +336,16 @@ export class Parser {
         let lastPrevious = this.previous;
 
         while (!this.check(TokenType.EOF) &&
-               !this.check(TokenType.BACKQUOTE) &&
-               !this.check(TokenType.TRIPLE_BQ) &&
+               !this.check(TokenType.INCODE_SYMB) &&
+               !this.check(TokenType.CODEBLOCK_SYMB) &&
                !this.check(TokenType.LINE_BREAK) &&
                !this.check(TokenType.PARAGRAPH_BREAK)) {
             this.consume();
             tokens.push(this.previous);
         }
 
-        if (this.check(TokenType.BACKQUOTE) || 
-            this.check(TokenType.TRIPLE_BQ)) {
+        if (this.check(TokenType.INCODE_SYMB) || 
+            this.check(TokenType.CODEBLOCK_SYMB)) {
             let str = tokens.map(t => this.cancelTags(t.text)).join('');
             this.consume();
             return `<code>${str}</code>`;
@@ -376,8 +376,8 @@ export class Parser {
 
         for (;;) {
             switch (this.next.type) {
-                case TokenType.BACKQUOTE:
-                case TokenType.TRIPLE_BQ:
+                case TokenType.INCODE_SYMB:
+                case TokenType.CODEBLOCK_SYMB:
                     this.consume();
                     res += this.code();
                     break;
@@ -386,10 +386,10 @@ export class Parser {
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
                 case TokenType.TILDE:
-                case TokenType.PLUS:
-                case TokenType.ELLIPSIS:
-                case TokenType.HASHTAG:
-                case TokenType.EQUALS_SEQ:
+                case TokenType.UL_SYMB:
+                case TokenType.NL_ESCAPE:
+                case TokenType.OL_SYMB:
+                case TokenType.HEADER_SYMB:
                     res += this.text0({takesURLs: takesURLs});
                     break;    
 
@@ -403,18 +403,18 @@ export class Parser {
         let res = ''
 
         switch (this.next.type) {
-            case TokenType.BACKQUOTE:    
-            case TokenType.TRIPLE_BQ:
+            case TokenType.INCODE_SYMB:    
+            case TokenType.CODEBLOCK_SYMB:
             case TokenType.TILDE:
             case TokenType.SPACE:
-            case TokenType.PLUS:
-            case TokenType.ELLIPSIS:
-            case TokenType.HASHTAG:
+            case TokenType.UL_SYMB:
+            case TokenType.NL_ESCAPE:
+            case TokenType.OL_SYMB:
             case TokenType.WORD_SPAN:
             case TokenType.HYPHEN:
-            case TokenType.EQUALS_SEQ:
+            case TokenType.HEADER_SYMB:
                 res += this.text1({takesURLs: takesURLs});
-                if (this.check(TokenType.ASTERISK)) {
+                if (this.check(TokenType.EMPH_SYMB)) {
                     this.consume();
                     switch (level % 4) {
                         case 1: return `<i>${res}</i>`;
@@ -424,29 +424,29 @@ export class Parser {
                     }
                 } else return `*${res}`
 
-            case TokenType.ASTERISK:
+            case TokenType.EMPH_SYMB:
                 this.consume();
                 res += this.emph({
                     level: level + 1,
                     takesURLs: takesURLs
                 });
                 switch (this.next.type) {
-                    case TokenType.BACKQUOTE:    
-                    case TokenType.TRIPLE_BQ:
+                    case TokenType.INCODE_SYMB:    
+                    case TokenType.CODEBLOCK_SYMB:
                     case TokenType.TILDE:
                     case TokenType.SPACE:
-                    case TokenType.PLUS:
-                    case TokenType.ELLIPSIS:
-                    case TokenType.HASHTAG:
+                    case TokenType.UL_SYMB:
+                    case TokenType.NL_ESCAPE:
+                    case TokenType.OL_SYMB:
                     case TokenType.WORD_SPAN:
                     case TokenType.HYPHEN:
-                    case TokenType.EQUALS_SEQ:
+                    case TokenType.HEADER_SYMB:
                         res += this.emph({
                             level: level, 
                             takesURLs: takesURLs
                         });
                         break;
-                    case TokenType.ASTERISK:
+                    case TokenType.EMPH_SYMB:
                         this.consume();
                         break;
                 }
@@ -461,20 +461,20 @@ export class Parser {
 
         for (;;) {
             switch (this.next.type) {
-                case TokenType.BACKQUOTE:
-                case TokenType.TRIPLE_BQ:
+                case TokenType.INCODE_SYMB:
+                case TokenType.CODEBLOCK_SYMB:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
-                case TokenType.PLUS:
-                case TokenType.ELLIPSIS:
-                case TokenType.HASHTAG:
+                case TokenType.UL_SYMB:
+                case TokenType.NL_ESCAPE:
+                case TokenType.OL_SYMB:
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
-                case TokenType.EQUALS_SEQ:
+                case TokenType.HEADER_SYMB:
                     res += this.text1({takesURLs: takesURLs});
                     break;
 
-                case TokenType.ASTERISK:
+                case TokenType.EMPH_SYMB:
                     if (takesEmph) {
                         this.consume();
                         res += this.emph({takesURLs: takesURLs});
@@ -515,17 +515,17 @@ export class Parser {
 
         for (;;) {
             switch (this.next.type) {
-                case TokenType.BACKQUOTE:
-                case TokenType.TRIPLE_BQ:
+                case TokenType.INCODE_SYMB:
+                case TokenType.CODEBLOCK_SYMB:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
-                case TokenType.PLUS:
-                case TokenType.ELLIPSIS:
-                case TokenType.HASHTAG:
+                case TokenType.UL_SYMB:
+                case TokenType.NL_ESCAPE:
+                case TokenType.OL_SYMB:
                 case TokenType.WORD_SPAN:
-                case TokenType.ASTERISK:
+                case TokenType.EMPH_SYMB:
                 case TokenType.HYPHEN:
-                case TokenType.EQUALS_SEQ:
+                case TokenType.HEADER_SYMB:
                     res += this.text2({
                         takesURLs: takesURLs,
                         takesEmph: takesEmph
@@ -596,7 +596,7 @@ export class Parser {
                     return `<blockquote>${res}</blockquote>`;
 
                 case TokenType.LINE_BREAK:
-                    if (this.previous.type !== TokenType.ELLIPSIS) {
+                    if (this.previous.type !== TokenType.NL_ESCAPE) {
                         res += '<br>';
                     } this.consume();
                     break;
@@ -666,7 +666,7 @@ export class Parser {
         // array to be re-processed, though as a paragraph.
 
         while (!this.check(TokenType.EOF) &&
-               !this.check(TokenType.TRIPLE_BQ)) {
+               !this.check(TokenType.CODEBLOCK_SYMB)) {
             this.consume();
             tokens.push(this.previous);
         }
@@ -677,7 +677,7 @@ export class Parser {
         // furthermore, we would like to allow a single linebreak
         // after the starting delimiter for aesthetic reasons.
 
-        if (this.check(TokenType.TRIPLE_BQ)) {
+        if (this.check(TokenType.CODEBLOCK_SYMB)) {
             tokens.shift();
             if (tokens[0].type === TokenType.LINE_BREAK) {
                 tokens.shift();
@@ -708,7 +708,7 @@ export class Parser {
                !this.check(TokenType.PARAGRAPH_BREAK)) {
             res += this.text3({});
             if (this.check(TokenType.LINE_BREAK)) {
-                if (this.previous.type !== TokenType.ELLIPSIS) {
+                if (this.previous.type !== TokenType.NL_ESCAPE) {
                     res += '<br>';
                 } this.consume();
             }
@@ -722,14 +722,14 @@ export class Parser {
 
         for (;;) {
             switch (this.next.type) {
-                case TokenType.HASHTAG: {
+                case TokenType.OL_SYMB: {
                     if (this.next.text.length - 1 > level) {
                         res += this.ordered(level + 1);
                     } else if (this.next.text.length - 1 < level) {
                         return res ? `<ol>${res}</ol>` : '';
                     } else {
                         this.consume();
-                        res += this.listel(TokenType.HASHTAG);
+                        res += this.listel(TokenType.OL_SYMB);
                     }
                     break;
                 }
@@ -746,14 +746,14 @@ export class Parser {
 
         for (;;) {
             switch (this.next.type) {
-                case TokenType.PLUS: {
+                case TokenType.UL_SYMB: {
                     if (this.next.text.length - 1 > level) {
                         res += this.unordered(level + 1);
                     } else if (this.next.text.length - 1 < level) {
                         return res ? `<ul>${res}</ul>` : '';
                     } else {
                         this.consume();
-                        res += this.listel(TokenType.PLUS);
+                        res += this.listel(TokenType.UL_SYMB);
                     }
                     break;
                 }
@@ -774,14 +774,14 @@ export class Parser {
                 this.consume();
                 return '';
 
-            case TokenType.EQUALS_SEQ: {
+            case TokenType.HEADER_SYMB: {
                 let len = this.next.text.length;
                 this.consume();
                 res = this.header(len);
                 break;
             }
 
-            case TokenType.TRIPLE_BQ:
+            case TokenType.CODEBLOCK_SYMB:
                 res = this.codeblock();
                 break;
 
@@ -792,11 +792,11 @@ export class Parser {
                 } else res = this.paragraph();
                 break;
 
-            case TokenType.PLUS:
+            case TokenType.UL_SYMB:
                 res = this.unordered();
                 break;
 
-            case TokenType.HASHTAG:
+            case TokenType.OL_SYMB:
                 res = this.ordered();
                 break;
                 
@@ -805,10 +805,16 @@ export class Parser {
                 break;
         }
 
-        // this "segment" business, as it turns out,
-        // is necessary for spacing to work like i want it.
-        // now that it's out of the way, we can make the margin
-        // of everything 
+        // the segment parent serves two functions right now.
+        // firstly, it functions as a base that determines the
+        // general, average spacing of each paragraph-like
+        // block that makes up the document.
+
+        // secondly, it allows me to implement asides. asides
+        // must always accompany a non-empty paragraph-like
+        // block. the best way to make sure that happens is to
+        // place the logic here, outside of the loop, right before
+        // the return.
 
         return `<div class="segment">${res}</div>`;
     }
