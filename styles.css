@@ -83,7 +83,8 @@ body {
 }
 
 .segment {
-    font-family: 'Segoe UI', Arial, Helvetica, sans-serif
+    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    background-color: rgb(240, 240, 240);
 }
 
 /* Markdown elements */
@@ -101,6 +102,16 @@ body {
 
 pre {
     margin: 0;
+    overflow-x: scroll;
+}
+
+code {
+    font-family: 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+}
+
+pre > code {
+    font-size: 0.75em;
 }
 
 blockquote {

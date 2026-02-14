@@ -1,18 +1,20 @@
 const TokenType = {
     EOF: 0,
-    LINE_BREAK: 1,
-    PARAGRAPH_BREAK: 2,
-    ASTERISK: 3,
-    BACKQUOTE: 4,           // "`"
-    TILDE: 5,
-    PLUS: 6,
-    HYPHEN: 7,
-    EQUALS_SEQ: 8,
-    LEFT_BRACK: 9 ,         // "["
-    RIGHT_BRACK: 10,        // "]"
-    WORD_SPAN: 11,          // well...
-    SPACE: 12,
-    TRIPLE_BQ: 13,
+    SPACE: 1,
+    WORD_SPAN: 2,
+    LINE_BREAK: 3,
+    PARAGRAPH_BREAK: 4,
+    ASTERISK: 5,
+    BACKQUOTE: 6,
+    TRIPLE_BQ: 7,
+    TILDE: 8,
+    PLUS: 9,
+    HASHTAG: 10,
+    HYPHEN: 11,
+    EQUALS_SEQ: 12,
+    
+    LEFT_BRACK: 13,
+    RIGHT_BRACK: 14,
 }
 
 function charIsSafe(char) {
@@ -101,7 +103,6 @@ class Scanner {
                     return this.makeToken(TokenType.PARAGRAPH_BREAK);
                 } return this.makeToken(TokenType.LINE_BREAK);
 
-            case '+': return this.makeToken(TokenType.PLUS);
             case '~': return this.makeToken(TokenType.TILDE);
             case '*': return this.makeToken(TokenType.ASTERISK);
             case '[': return this.makeToken(TokenType.LEFT_BRACK);
@@ -119,6 +120,20 @@ class Scanner {
                     this.advance();
                 } return this.makeToken(TokenType.SPACE);
 
+            case '+':
+                while (this.peek() === '+') this.advance();
+                if (this.peek() === ' ') {
+                    this.advance();
+                    return this.makeToken(TokenType.PLUS);
+                } else return this.makeToken(TokenType.WORD_SPAN);
+
+            case '#': 
+                while (this.peek() === '#') this.advance();
+                if (this.peek() === ' ') {
+                    this.advance();
+                    return this.makeToken(TokenType.HASHTAG);
+                } else return this.makeToken(TokenType.WORD_SPAN);
+
             case '-':
                 while (this.peek() === '-') {
                     this.advance();
@@ -129,8 +144,7 @@ class Scanner {
                     if (this.peek() !== '=') {
                         return this.makeToken(TokenType.EQUALS_SEQ);
                     } this.advance();
-                }
-                break;
+                } return this.makeToken(TokenType.WORD_SPAN);
 
             // this is how escape characters are made.
             // anything can be cancelled as long as it isn't a space.
@@ -153,14 +167,25 @@ export class Parser {
         this.text = text;
         this.scanner = new Scanner(text);
         this.previous = null;
-        this.next = this.scanner.scan();
+        this.next = null;
         this.pendingTokens = [];
+
+        this.consume();
     }
 
     check(type) {
-        if (this.pendingTokens.length > 0) {
-            return this.pendingTokens[0].type;
-        } else return this.next.type === type;
+        return this.next.type === type;
+    }
+
+    checkNext(type) {
+        let lastPrevious = this.previous;
+        this.consume();
+        let result = this.check(type);
+
+        this.pendingTokens.push(this.next);
+        this.next = this.previous;
+        this.previous = lastPrevious;
+        return result;
     }
 
     consume() {
@@ -173,8 +198,16 @@ export class Parser {
         return this.previous;
     }
 
+    cancelTags(text) {
+        return text.replace('&', '&amp;')
+                   .replace('<', '&lt;')
+                   .replace('>', '&gt;')
+                   .replace('"', '&quot;')
+                   .replace("'", '&apos;');
+    }
+
     styleText(text) {
-        console.log(text);
+        text = this.cancelTags(text);
         return text.replace(/\\(?=.)/, "")
                    .replace(/\-(\-)+/, (m) => '—'.repeat(m.length - 1));
     }
@@ -206,7 +239,7 @@ export class Parser {
 
         if (inner === undefined) inner = pref;
         if (!/^https?:\/\//.test(pref)) pref = "https://" + pref;
-        return `<a href=\"${pref}\">${this.styleText(inner)}</a>${suff}`;
+        return `<a href=\"${pref}\">${inner}</a>${suff}`;
     }
 
     text0({takesURLs=true}) {
@@ -225,6 +258,8 @@ export class Parser {
 
                 case TokenType.TILDE:
                 case TokenType.SPACE:
+                case TokenType.PLUS:
+                case TokenType.HASHTAG:
                     this.consume();
                     res += this.previous.text;
                     break;
@@ -281,9 +316,9 @@ export class Parser {
 
         if (this.check(TokenType.BACKQUOTE) || 
             this.check(TokenType.TRIPLE_BQ)) {
-            let string = tokens.map(tok => tok.text).join('');
+            let str = tokens.map(t => this.cancelTags(t.text)).join('');
             this.consume();
-            return `<code>${string}</code>`;
+            return `<code>${str}</code>`;
         }
         
         // here, the `pendingTokens` list is set up to perfectly
@@ -321,6 +356,8 @@ export class Parser {
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
                 case TokenType.TILDE:
+                case TokenType.PLUS:
+                case TokenType.HASHTAG:
                 case TokenType.EQUALS_SEQ:
                     res += this.text0({takesURLs: takesURLs});
                     break;    
@@ -339,6 +376,8 @@ export class Parser {
             case TokenType.TRIPLE_BQ:
             case TokenType.TILDE:
             case TokenType.SPACE:
+            case TokenType.PLUS:
+            case TokenType.HASHTAG:
             case TokenType.WORD_SPAN:
             case TokenType.HYPHEN:
             case TokenType.EQUALS_SEQ:
@@ -360,10 +399,15 @@ export class Parser {
                     takesURLs: takesURLs
                 });
                 switch (this.next.type) {
-                    case TokenType.BACKQUOTE:
+                    case TokenType.BACKQUOTE:    
                     case TokenType.TRIPLE_BQ:
+                    case TokenType.TILDE:
                     case TokenType.SPACE:
+                    case TokenType.PLUS:
+                    case TokenType.HASHTAG:
                     case TokenType.WORD_SPAN:
+                    case TokenType.HYPHEN:
+                    case TokenType.EQUALS_SEQ:
                         res += this.emph({
                             level: level, 
                             takesURLs: takesURLs
@@ -388,6 +432,8 @@ export class Parser {
                 case TokenType.TRIPLE_BQ:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
+                case TokenType.PLUS:
+                case TokenType.HASHTAG:
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
                 case TokenType.EQUALS_SEQ:
@@ -439,6 +485,8 @@ export class Parser {
                 case TokenType.TRIPLE_BQ:
                 case TokenType.SPACE:
                 case TokenType.TILDE:
+                case TokenType.PLUS:
+                case TokenType.HASHTAG:
                 case TokenType.WORD_SPAN:
                 case TokenType.ASTERISK:
                 case TokenType.HYPHEN:
@@ -480,7 +528,7 @@ export class Parser {
             });
         }
 
-        return `<div>${res}</div>`;
+        return res === '' ? '' : `<div>${res}</div>`;
     }
 
     paragraph() {
@@ -599,9 +647,9 @@ export class Parser {
                 tokens.shift();
             }
 
-            let string = tokens.map(tok => tok.text).join('');
+            let str = tokens.map(t => this.cancelTags(t.text)).join('');
             this.consume();
-            return `<pre><code>${string}</code></pre>`;
+            return `<pre><code>${str}</code></pre>`;
         }
 
         this.previous = lastPrevious;
@@ -613,6 +661,78 @@ export class Parser {
         }
 
         return this.paragraph();
+    }
+
+    ordered(level=1) {
+        let res = '';
+
+        for (;;) {
+            switch (this.next.type) {
+                case TokenType.HASHTAG: {
+                    if (this.next.text.length - 1 > level) {
+                        res += this.ordered(level + 1);
+                    } else if (this.next.text.length - 1 < level) {
+                        return res ? `<ol>${res}</ol>` : '';
+                    } else {
+                        this.consume();
+                        res += '<li>';
+                        while (!this.check(TokenType.EOF) &&
+                               !this.check(TokenType.HASHTAG) &&
+                               !this.check(TokenType.LINE_BREAK) &&
+                               !this.check(TokenType.PARAGRAPH_BREAK)) {
+                            res += this.text3({});
+                            if (this.check(TokenType.LINE_BREAK)) {
+                                this.consume();
+                                res += '<br>';
+                            }
+                        }
+                        res += '</li>';
+
+                    }
+                    break;
+                }
+
+                default:
+                    return res ? `<ol>${res}</ol>` : '';
+
+            }
+        }
+    }
+
+    unordered(level=1) {
+        let res = '';
+
+        for (;;) {
+            switch (this.next.type) {
+                case TokenType.PLUS: {
+                    if (this.next.text.length - 1 > level) {
+                        res += this.unordered(level + 1);
+                    } else if (this.next.text.length - 1 < level) {
+                        return res ? `<ul>${res}</ul>` : '';
+                    } else {
+                        this.consume();
+                        res += '<li>';
+                        while (!this.check(TokenType.EOF) &&
+                               !this.check(TokenType.PLUS) &&
+                               !this.check(TokenType.LINE_BREAK) &&
+                               !this.check(TokenType.PARAGRAPH_BREAK)) {
+                            res += this.text3({});
+                            if (this.check(TokenType.LINE_BREAK)) {
+                                this.consume();
+                                res += '<br>';
+                            }
+                        }
+                        res += '</li>';
+
+                    }
+                    break;
+                }
+
+                default:
+                    return res ? `<ul>${res}</ul>` : '';
+
+            }
+        }
     }
 
     block() {
@@ -640,6 +760,14 @@ export class Parser {
                     this.consume();
                     res = this.blockquote();
                 } else res = this.paragraph();
+                break;
+
+            case TokenType.PLUS:
+                res = this.unordered();
+                break;
+
+            case TokenType.HASHTAG:
+                res = this.ordered();
                 break;
                 
             default:

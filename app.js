@@ -4,7 +4,7 @@ const def_inpt = `
 = this is a header
 == this is a smaller header
 
-this is a simple line. \\[\\]
+this is a simple line.
 this is a follow-up to the simple line.
 
 === this is an even smaller header
@@ -40,24 +40,56 @@ hyperlinks can appear with placeholder text.
 for instance, www.google.com[this] actually links to www.google.com.
 and https://en.m.wikipedia.org/wiki/C_Sharp_(programming_language)[this text] is a hyperlink to a *Wikipedia* article.
 
-\`\`\`this is a codeblock.
-everything here looks cool.
 \`\`\`
+// this is a codeblock.
+// everything here looks cool.
+// with programming languages, the characters must be displayed as is (on a character-level) based on established code-reading practice.
+// and this might be useful to display raw code.
+// for instance, here's a random block of c-code.
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char[][] argv) {
+    return EXIT_SUCCESS;
+}
+\`\`\`
+
+Although normally two brackets would become a function block, when escaped they appear as characters.
+Here, you can see both of them: \\[\\]. They do not disappear.
+This also works with asterisks. *In this sentence, the asterisks are not escaped.* \\*Here, they are.\\*
 
 == Things to do
 
-1) add automatic link parsing -- **done!!**
-2) add list aliases "[]" -- **done!!**
-3) add blockquote author field -- **done!!**
-4) add inline code spans -- **done!!**
-5) add code blocks -- **done!!**
-6) add character escapes -- **done!!**
-7) add lists with multiple levels
-8) add a line break escape character for within lists and the like. \`"..."\`
-8) add definitions
-9) add tables
-10) add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
-11) add dropdown panels with aliases that trigger the dropdown once clicked.`
++ add automatic link parsing -- **done!!**
++ add list aliases "[]" -- **done!!**
++ add blockquote author field -- **done!!**
++ add inline code spans -- **done!!**
++ add code blocks -- **done!!**
++ add character escapes -- **done!!**
++ add lists with multiple levels. --**done!!**
+++ delimiters can be \`+\` for unordered, \`#\` for ordered.
+
++ add a line break escape character for within lists and the like. \`"..."\`
++ add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
+
++ **add asides (or rather, "notes"):**
+++ asides should be besides the paragraph that precedes them, on the left or on the right.
+++ if they happen to be longer than the length of that paragraph, they should have an
+expandable "read more.." button next to them on the last line or whatever. maybe a down arrow?
+++ the aside in the markup should be a paragraph type, distinguished with the \`::\` delimiter.
+++ multiple asides in a row will be the same as having a single large aside attached to the previous,
+though it allows for paragraphs within the asides.
+
++ add in-document links (and markers for references, for those links)
++ add tables.
+
++ **add a parameter for all paragraph types that can make them extendable.**
+this allows them to have the "read more" thing. it is here that the linebreak delimiter shines,
+since this would mean that you can hide an entire other paragraph as long as it is technically
+just one paragraph.
+
+`
 
 const textarea = document.querySelector(".tab-body textarea");
 const prev_dsp = document.querySelector(".tab-body .preview-display");
