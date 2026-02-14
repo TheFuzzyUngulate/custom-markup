@@ -7,14 +7,15 @@ const TokenType = {
     ASTERISK: 5,
     BACKQUOTE: 6,
     TRIPLE_BQ: 7,
-    TILDE: 8,
-    PLUS: 9,
-    HASHTAG: 10,
-    HYPHEN: 11,
-    EQUALS_SEQ: 12,
+    ELLIPSIS: 8,
+    TILDE: 9,
+    PLUS: 10,
+    HASHTAG: 11,
+    HYPHEN: 12,
+    EQUALS_SEQ: 13,
     
-    LEFT_BRACK: 13,
-    RIGHT_BRACK: 14,
+    LEFT_BRACK: 14,
+    RIGHT_BRACK: 15,
 }
 
 function charIsSafe(char) {
@@ -114,6 +115,13 @@ class Scanner {
                     this.advance();
                     return this.makeToken(TokenType.TRIPLE_BQ);
                 } else return this.makeToken(TokenType.BACKQUOTE);
+            
+            case '.': 
+                if (this.peek() === '.' && this.peekNext() === '.') {
+                    this.advance();
+                    this.advance();
+                    return this.makeToken(TokenType.ELLIPSIS);
+                } else return this.makeToken(TokenType.WORD_SPAN);
 
             case ' ':
                 while (this.peek() === ' ') {
@@ -242,6 +250,24 @@ export class Parser {
         return `<a href=\"${pref}\">${inner}</a>${suff}`;
     }
 
+    ellipsis() {
+        if (this.previous !== null &&
+            this.previous.type !== TokenType.PARAGRAPH_BREAK &&
+            this.previous.type !== TokenType.LINE_BREAK) {
+            this.consume();
+            return '...';
+        }
+
+        this.consume();
+        
+        if (this.next.type !== TokenType.PARAGRAPH_BREAK &&
+            this.next.type !== TokenType.LINE_BREAK) {
+            return '...';
+        }
+
+        return `<br>`;
+    }
+
     text0({takesURLs=true}) {
         let res = '';
 
@@ -254,6 +280,10 @@ export class Parser {
                     } else {
                         res += this.styleText(this.previous.text);
                     }
+                    break;
+                    
+                case TokenType.ELLIPSIS:
+                    res += this.ellipsis();
                     break;
 
                 case TokenType.TILDE:
@@ -357,6 +387,7 @@ export class Parser {
                 case TokenType.HYPHEN:
                 case TokenType.TILDE:
                 case TokenType.PLUS:
+                case TokenType.ELLIPSIS:
                 case TokenType.HASHTAG:
                 case TokenType.EQUALS_SEQ:
                     res += this.text0({takesURLs: takesURLs});
@@ -377,6 +408,7 @@ export class Parser {
             case TokenType.TILDE:
             case TokenType.SPACE:
             case TokenType.PLUS:
+            case TokenType.ELLIPSIS:
             case TokenType.HASHTAG:
             case TokenType.WORD_SPAN:
             case TokenType.HYPHEN:
@@ -404,6 +436,7 @@ export class Parser {
                     case TokenType.TILDE:
                     case TokenType.SPACE:
                     case TokenType.PLUS:
+                    case TokenType.ELLIPSIS:
                     case TokenType.HASHTAG:
                     case TokenType.WORD_SPAN:
                     case TokenType.HYPHEN:
@@ -433,6 +466,7 @@ export class Parser {
                 case TokenType.SPACE:
                 case TokenType.TILDE:
                 case TokenType.PLUS:
+                case TokenType.ELLIPSIS:
                 case TokenType.HASHTAG:
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
@@ -486,6 +520,7 @@ export class Parser {
                 case TokenType.SPACE:
                 case TokenType.TILDE:
                 case TokenType.PLUS:
+                case TokenType.ELLIPSIS:
                 case TokenType.HASHTAG:
                 case TokenType.WORD_SPAN:
                 case TokenType.ASTERISK:
@@ -561,8 +596,9 @@ export class Parser {
                     return `<blockquote>${res}</blockquote>`;
 
                 case TokenType.LINE_BREAK:
-                    this.consume();
-                    res += '<br>';
+                    if (this.previous.type !== TokenType.ELLIPSIS) {
+                        res += '<br>';
+                    } this.consume();
                     break;
 
                 case TokenType.PARAGRAPH_BREAK:
@@ -663,6 +699,24 @@ export class Parser {
         return this.paragraph();
     }
 
+    listel(delim) {
+        let res = '';
+
+        while (!this.check(delim) &&
+               !this.check(TokenType.EOF) &&
+               !this.check(TokenType.LINE_BREAK) &&
+               !this.check(TokenType.PARAGRAPH_BREAK)) {
+            res += this.text3({});
+            if (this.check(TokenType.LINE_BREAK)) {
+                if (this.previous.type !== TokenType.ELLIPSIS) {
+                    res += '<br>';
+                } this.consume();
+            }
+        }
+
+        return res ? `<li>${res}</li>` : '';
+    }
+
     ordered(level=1) {
         let res = '';
 
@@ -675,19 +729,7 @@ export class Parser {
                         return res ? `<ol>${res}</ol>` : '';
                     } else {
                         this.consume();
-                        res += '<li>';
-                        while (!this.check(TokenType.EOF) &&
-                               !this.check(TokenType.HASHTAG) &&
-                               !this.check(TokenType.LINE_BREAK) &&
-                               !this.check(TokenType.PARAGRAPH_BREAK)) {
-                            res += this.text3({});
-                            if (this.check(TokenType.LINE_BREAK)) {
-                                this.consume();
-                                res += '<br>';
-                            }
-                        }
-                        res += '</li>';
-
+                        res += this.listel(TokenType.HASHTAG);
                     }
                     break;
                 }
@@ -711,19 +753,7 @@ export class Parser {
                         return res ? `<ul>${res}</ul>` : '';
                     } else {
                         this.consume();
-                        res += '<li>';
-                        while (!this.check(TokenType.EOF) &&
-                               !this.check(TokenType.PLUS) &&
-                               !this.check(TokenType.LINE_BREAK) &&
-                               !this.check(TokenType.PARAGRAPH_BREAK)) {
-                            res += this.text3({});
-                            if (this.check(TokenType.LINE_BREAK)) {
-                                this.consume();
-                                res += '<br>';
-                            }
-                        }
-                        res += '</li>';
-
+                        res += this.listel(TokenType.PLUS);
                     }
                     break;
                 }
