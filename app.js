@@ -42,9 +42,8 @@ and https://en.m.wikipedia.org/wiki/C_Sharp_(programming_language)[this text] is
 
 \`\`\`
 // this is a codeblock.
-// everything here looks cool.
-// with programming languages, the characters must be displayed as is (on a character-level) based on established code-reading practice.
-// and this might be useful to display raw code.
+// i will mostly use these for displaying pseudocode or actual code.
+// but these can be used to represent any body of text that is meant to be read character-by-character, as displayed, based on general writing convention for the language being used.
 // for instance, here's a random block of c-code.
 
 #include <stdio.h>
@@ -95,8 +94,12 @@ expandable "read more.." button next to them on the last line or whatever. maybe
 ++ the aside in the markup should be a paragraph type, distinguished with the \`::\` delimiter.
 ++ multiple asides in a row will be the same as having a single large aside attached to the previous, though it allows for paragraphs within the asides.
 + add in-document links (and markers for references, for those links)
+++ implement two types of links:
++++ first, a paragraph-level link which should appear first in the paragraph.
++++ second, a character-level link that can appear anywhere and is visible in the final result as a link symbol. call this a bookmark.
+++ both types can be referenced anywhere with a character that acts as a link to whatever it is.
+++ when a paragraph is linked to, it shines.
 + add tables.
-
 `
 
 const textarea = document.querySelector(".tab-body textarea");
