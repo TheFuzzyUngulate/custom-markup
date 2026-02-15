@@ -1,8 +1,32 @@
+:root {
+    --global-line-height: 1.5em;
+    --font-size-smaller: 0.6rem;
+    --font-size-small: 0.8rem;
+    --font-size-normal: 1rem;
+    --font-size-medium: 1.25rem;
+    --font-size-large: 1.5rem;
+    --font-size-larger: 2rem;
+    --font-size-largest: 2.5rem;
+    --font-weight-normal: 400;
+}
+
+:root {
+    --global-color-primary: black;
+    --global-color-secondary: red;
+}
+
+:root {
+    --font-family-editor: 'Consolas', monospace;
+    --font-family-prev-default: 'Segoe UI', Arial, Helvetica, sans-serif;
+    --font-family-prev-code: 'Ubuntu Mono', monospace;
+}
+
 * {
     margin: 0;
     box-sizing: border-box;         /* Opera/IE 8+ */
     -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
     -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+    line-height: var(--global-line-height);
 }
 
 /* Frame */
@@ -47,14 +71,22 @@ body {
     height: 100%;
 }
 
+.tab.editor {
+    width: 40%;
+}
+
+.tab.preview {
+    width: 60%;
+}
+
 .tab-menu {
     height: 40px;
-    background-color: blue;
+    background-color: var(--global-color-secondary);
 }
 
 .tab-footer {
     height: 40px;
-    background-color: blue;
+    background-color: var(--global-color-secondary);
 }
 
 .tab-body {
@@ -67,24 +99,40 @@ body {
     height: 100%;
     overflow-y: scroll;
     font-family: 'Consolas';
-    font-size: 16px;
+    font-size: var(--font-size-normal);
     resize: none;
 }
 
 .tab-body .preview-display {
     display: flex;
     flex-direction: column;
-    row-gap: 10px;
+    row-gap: var(--global-line-height);
     width: 100%;
     height: 100%;
     background-color: white;
     overflow-y: scroll;
+    font-size: var(--font-size-medium);
+    font-family: var(--font-family-prev-default);
     padding: 15px;
+    color: var(--global-color-primary);
 }
 
-.segment {
-    font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
-    background-color: rgb(240, 240, 240);
+.preview-display h1, .preview-display h2,
+.preview-display h3, .preview-display h4,
+.preview-display h5, .preview-display h6 {
+    font-weight: var(--font-weight-normal);
+    margin: 0 0 1rem 0;
+}
+
+.preview-display a, .preview-display button {
+    color: var(--global-color-secondary);
+}
+
+.preview-display .segment {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    line-height: var(--global-line-height);
+    column-gap: 5em;
 }
 
 /* Markdown elements */
@@ -97,26 +145,58 @@ body {
 
 .quote-cit::before {
     content: "\2014\0009\0009";
-    color: red;
-}
-
-pre {
-    margin: 0;
-    overflow-x: scroll;
+    color: var(--global-color-secondary);
 }
 
 code {
-    font-family: 'Ubuntu Mono', monospace;
-    font-size: 0.9em;
+    font-family: var(--font-family-prev-code);
+    font-size: var(--font-size-normal);
 }
 
-pre > code {
-    font-size: 0.75em;
+.codeblock {
+    font-family: var(--font-family-prev-code);
+    font-size: var(--font-size-small);
+    white-space: pre-wrap;
 }
 
 blockquote {
     margin-left: 2em;
     /* font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif */
+}
+
+aside {
+    overflow: hidden;
+    float: left;
+}
+
+.aside-content {
+    padding: 10px;
+    font-size: var(--font-size-small);
+    overflow: hidden;
+    border-left: 5px solid var(--global-color-secondary);
+}
+
+.aside-btn {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    text-align: right;
+    display: none;
+    font-size: var(--font-size-small);
+    font-family: var(--font-family-prev-default);
+    line-height: 1em;
+    border-left: 5px solid var(--global-color-secondary);
+    background-color: transparent;
+}
+
+.aside-btn.aside-btn-visible {
+    display: block;
+    width: 100%;
+}
+
+.aside-btn:hover {
+    cursor: pointer;
+    color: var(--global-color-secondary);
 }
 
 @media only screen and (max-width: 600px) {
@@ -127,6 +207,14 @@ blockquote {
 
     .tab {
         height: 50%;
+        width: 100%;
+    }
+
+    .tab.editor {
+        width: 100%;
+    }
+
+    .tab.preview {
         width: 100%;
     }
 }

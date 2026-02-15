@@ -1,7 +1,7 @@
 import { Parser } from './parse.js'
 
-const def_inpt = `
-= this is a header
+const def_inpt = 
+`= this is a header
 == this is a smaller header
 
 this is a simple line.
@@ -59,6 +59,22 @@ Although normally two brackets would become a function block, when escaped they 
 Here, you can see both of them: \\[\\]. They do not disappear.
 This also works with asterisks. *In this sentence, the asterisks are not escaped.* \\*Here, they are.\\*
 
+here is a short paragraph.
+
+:: this is an aside.
+it is used to convey information that is only *tangentially* related to the block it is attached to.
+alternatively, it can be used for notes.
+
+Here is a longer paragraph. The aside that appears immediately after this paragraph should show more than one line of text even in its preview form.
+...
+The preview form only gets cut off if the aside text is longer than the block.
+
+:: this aside is attached to a longer block.
+notice that the text that displays in the preview is more than in the shorter paragraph.
+the text that displays in the preview depends on the default length of the block.
+...
+moreover, the expansion button still appears.
+
 == Things to do
 
 + add automatic link parsing -- **done!!**
@@ -67,12 +83,10 @@ This also works with asterisks. *In this sentence, the asterisks are not escaped
 + add inline code spans -- **done!!**
 + add code blocks -- **done!!**
 + add character escapes -- **done!!**
-+ add lists with multiple levels. --**done!!**
++ add lists with multiple levels. -- **done!!**
 ++ delimiters can be \`+\` for unordered, \`#\` for ordered.
 + add a line break escape character for within lists and the like. \`"..."\` -- **done!!**
-+ add hidden spans (with an option to have a placeholder instead of a blackout effect as the "hiding")
-
-+ **add asides (or rather, "notes"):**
++ add asides (or rather, "notes"): -- **done!!**
 ++ asides should be besides the paragraph that precedes them, on the left or on the right.
 +++ in other words, they should only appear after a paragraph element.
 +++ structurally, they should share a segment.
@@ -80,14 +94,8 @@ This also works with asterisks. *In this sentence, the asterisks are not escaped
 expandable "read more.." button next to them on the last line or whatever. maybe a down arrow?
 ++ the aside in the markup should be a paragraph type, distinguished with the \`::\` delimiter.
 ++ multiple asides in a row will be the same as having a single large aside attached to the previous, though it allows for paragraphs within the asides.
-
 + add in-document links (and markers for references, for those links)
 + add tables.
-
-+ **add a parameter for all paragraph types that can make them extendable.**
-this allows them to have the "read more" thing. it is here that the linebreak delimiter shines,
-since this would mean that you can hide an entire other paragraph as long as it is technically
-just one paragraph.
 
 `
 
@@ -103,9 +111,64 @@ function updateTextarea(event) {
     prev_dsp.replaceChildren(template.content);
 }
 
-window.addEventListener('load', (ev) => {
+
+function truncateAsides() {
+    document.querySelectorAll('.aside-segment').forEach(sg => {
+        const main = sg.parentNode.querySelector('.main-content');
+        const aside = sg.querySelector('.aside-content');
+        if (!aside) return;
+
+        const btn = sg.querySelector('.aside-btn');
+        console.log(btn.clientHeight, btn.scrollHeight);
+        const mainHeight = main.scrollHeight;
+        const asideHeight = aside.scrollHeight;
+
+        aside.style.maxHeight = asideHeight + 'px';
+        aside.classList.remove('truncated');
+
+        if (mainHeight < asideHeight) {
+            const btnStyle = window.getComputedStyle(btn);
+            const btnHeight = btnStyle.getPropertyValue('line-height');
+            console.log(btnHeight);
+            aside.style.maxHeight = `calc(${mainHeight}px - ${btnHeight})`;
+            aside.classList.add('truncated');
+            btn.classList.add('aside-btn-visible');
+        }
+    })
+}
+
+function loadDefaultText(ev) {
     textarea.textContent = def_inpt;
     updateTextarea(ev);
-});
+}
+
+window.addEventListener('load', loadDefaultText);
+window.addEventListener('load', truncateAsides);
+window.addEventListener('resize', truncateAsides);
 
 textarea.addEventListener('input', updateTextarea);
+textarea.addEventListener('input', truncateAsides);
+
+document.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.aside-btn');
+    if (!btn) return;
+
+    const asideSeg = btn.closest('.aside-segment');
+    const aside = asideSeg.querySelector('.aside-content');
+
+    if (aside.classList.contains('expanded')) {
+        const main = asideSeg.parentNode.querySelector('.main-content');
+        const mainHeight = main.scrollHeight;
+        const btnStyle = window.getComputedStyle(btn);
+        const btnHeight = btnStyle.getPropertyValue('line-height');
+        console.log(btnHeight);
+        aside.style.maxHeight = `calc(${mainHeight}px - ${btnHeight})`;
+        aside.classList.remove('expanded');
+        btn.innerText = 'more...';
+    } else {
+        const asideHeight = aside.scrollHeight;
+        aside.style.maxHeight = asideHeight + 'px';
+        aside.classList.add('expanded');
+        btn.innerText = '...less';
+    }
+})

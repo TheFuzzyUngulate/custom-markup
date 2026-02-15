@@ -7,15 +7,15 @@ const TokenType = {
     EMPH_SYMB: 5,
     INCODE_SYMB: 6,
     CODEBLOCK_SYMB: 7,
-    NL_ESCAPE: 8,
-    TILDE: 9,
-    UL_SYMB: 10,
-    OL_SYMB: 11,
-    HYPHEN: 12,
-    HEADER_SYMB: 13,
-    
-    LEFT_BRACK: 14,
-    RIGHT_BRACK: 15,
+    ASIDE_SYMB: 8,
+    NL_ESCAPE: 9,
+    TILDE: 10,
+    UL_SYMB: 11,
+    OL_SYMB: 12,
+    HYPHEN: 13,
+    HEADER_SYMB: 14,
+    LEFT_BRACK: 15,
+    RIGHT_BRACK: 16,
 }
 
 function charIsSafe(char) {
@@ -134,6 +134,12 @@ class Scanner {
                     this.advance();
                     return this.makeToken(TokenType.UL_SYMB);
                 } else return this.makeToken(TokenType.WORD_SPAN);
+
+            case ':':
+                if (this.peek() === ':' && this.peekNext() === ' ') {
+                    this.advance();
+                    return this.makeToken(TokenType.ASIDE_SYMB);
+                } return this.makeToken(TokenType.WORD_SPAN);
 
             case '#': 
                 while (this.peek() === '#') this.advance();
@@ -265,7 +271,7 @@ export class Parser {
             return '...';
         }
 
-        return `<br>`;
+        return '<br>';
     }
 
     text0({takesURLs=true}) {
@@ -288,6 +294,7 @@ export class Parser {
 
                 case TokenType.TILDE:
                 case TokenType.SPACE:
+                case TokenType.ASIDE_SYMB:
                 case TokenType.UL_SYMB:
                 case TokenType.OL_SYMB:
                     this.consume();
@@ -385,6 +392,7 @@ export class Parser {
                 case TokenType.SPACE:
                 case TokenType.WORD_SPAN:
                 case TokenType.HYPHEN:
+                case TokenType.ASIDE_SYMB:
                 case TokenType.TILDE:
                 case TokenType.UL_SYMB:
                 case TokenType.NL_ESCAPE:
@@ -407,6 +415,7 @@ export class Parser {
             case TokenType.CODEBLOCK_SYMB:
             case TokenType.TILDE:
             case TokenType.SPACE:
+            case TokenType.ASIDE_SYMB:
             case TokenType.UL_SYMB:
             case TokenType.NL_ESCAPE:
             case TokenType.OL_SYMB:
@@ -435,6 +444,7 @@ export class Parser {
                     case TokenType.CODEBLOCK_SYMB:
                     case TokenType.TILDE:
                     case TokenType.SPACE:
+                    case TokenType.ASIDE_SYMB:
                     case TokenType.UL_SYMB:
                     case TokenType.NL_ESCAPE:
                     case TokenType.OL_SYMB:
@@ -464,6 +474,7 @@ export class Parser {
                 case TokenType.INCODE_SYMB:
                 case TokenType.CODEBLOCK_SYMB:
                 case TokenType.SPACE:
+                case TokenType.ASIDE_SYMB:
                 case TokenType.TILDE:
                 case TokenType.UL_SYMB:
                 case TokenType.NL_ESCAPE:
@@ -518,6 +529,7 @@ export class Parser {
                 case TokenType.INCODE_SYMB:
                 case TokenType.CODEBLOCK_SYMB:
                 case TokenType.SPACE:
+                case TokenType.ASIDE_SYMB:
                 case TokenType.TILDE:
                 case TokenType.UL_SYMB:
                 case TokenType.NL_ESCAPE:
@@ -563,7 +575,11 @@ export class Parser {
             });
         }
 
-        return res === '' ? '' : `<div>${res}</div>`;
+        if (res === '') {
+            return ''
+        } else if (res === '<br>') {
+            return '<br>'
+        } else return `<div>${res}</div>`
     }
 
     paragraph() {
@@ -661,7 +677,7 @@ export class Parser {
         // having pushed the starting delimiter, our logic should work
         // fine from hereon out. loop to find the closing delimiter or
         // EOF. if the closing delimiter is found, then the raw text of
-        // the tokens are placed in a <code> tag within a <pre> tag, no
+        // the tokens are placed in a <div class="codeblock"> tag, no
         // harm done. otherwise, everything is pushed to the pending
         // array to be re-processed, though as a paragraph.
 
@@ -685,7 +701,7 @@ export class Parser {
 
             let str = tokens.map(t => this.cancelTags(t.text)).join('');
             this.consume();
-            return `<pre><code>${str}</code></pre>`;
+            return `<div class="codeblock">${str}</div>`;
         }
 
         this.previous = lastPrevious;
@@ -765,8 +781,30 @@ export class Parser {
         }
     }
 
+    aside() {
+        if (this.check(TokenType.ASIDE_SYMB)) {
+            let tmp = '';
+            for (;;) {
+                this.consume();
+                tmp += this.paragraph();
+                if (this.check(TokenType.ASIDE_SYMB)) {
+                    tmp += '<br>'
+                } else break;
+            }
+
+            return `<div class="aside-content">
+                        ${tmp}
+                    </div>
+                    <button class="aside-btn">
+                        more...
+                    </button>`;
+        }
+
+        return '';
+    }
+
     block() {
-        let res = '';
+        let main = '';
 
         switch (this.next.type) {
             case TokenType.LINE_BREAK:
@@ -777,31 +815,31 @@ export class Parser {
             case TokenType.HEADER_SYMB: {
                 let len = this.next.text.length;
                 this.consume();
-                res = this.header(len);
+                main = this.header(len);
                 break;
             }
 
             case TokenType.CODEBLOCK_SYMB:
-                res = this.codeblock();
+                main = this.codeblock();
                 break;
 
             case TokenType.HYPHEN:
                 if (this.next.text.length === 3) {
                     this.consume();
-                    res = this.blockquote();
-                } else res = this.paragraph();
+                    main = this.blockquote();
+                } else main = this.paragraph();
                 break;
 
             case TokenType.UL_SYMB:
-                res = this.unordered();
+                main = this.unordered();
                 break;
 
             case TokenType.OL_SYMB:
-                res = this.ordered();
+                main = this.ordered();
                 break;
                 
             default:
-                res = this.paragraph();
+                main = this.paragraph();
                 break;
         }
 
@@ -816,7 +854,16 @@ export class Parser {
         // place the logic here, outside of the loop, right before
         // the return.
 
-        return `<div class="segment">${res}</div>`;
+        return `<div class="segment">
+                    <div class="main-segment">
+                        <div class="main-content">
+                            ${main}
+                        </div>
+                    </div>
+                    <aside class='aside-segment'>
+                        ${this.aside()}
+                    </aside>
+                </div>`;
     }
 
     doc() {
