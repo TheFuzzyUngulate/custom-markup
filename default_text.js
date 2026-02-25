@@ -77,7 +77,7 @@ moreover, the expansion button still appears.
 + add automatic link parsing -- **done!!**
 + add list aliases "[]" -- **done!!**
 + add blockquote author field -- **done!!**
-+ add multiple blockquote levels
++ add multiple blockquote levels -- **done!!**
 + add inline code spans -- **done!!**
 + add code blocks -- **done!!**
 + add character escapes -- **done!!**

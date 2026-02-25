@@ -155,8 +155,10 @@ class Scanner {
 
             case '=':
                 for (let i = 0; i < 4; i++) {
-                    if (this.peek() !== '=') {
+                    if (this.peek() === ' ') {
                         return this.makeToken(TokenType.HEADER_SYMB);
+                    } else if (this.peek() !== '=') {
+                        return this.makeToken(TokenType.WORD_SPAN);
                     } this.advance();
                 } return this.makeToken(TokenType.WORD_SPAN);
 
@@ -213,11 +215,11 @@ export class Parser {
     }
 
     cancelTags(text) {
-        return text.replace('&', '&amp;')
-                   .replace('<', '&lt;')
-                   .replace('>', '&gt;')
-                   .replace('"', '&quot;')
-                   .replace("'", '&apos;');
+        return text.replaceAll('&', '&amp;')
+                   .replaceAll('<', '&lt;')
+                   .replaceAll('>', '&gt;')
+                   .replaceAll('"', '&quot;')
+                   .replaceAll("'", '&apos;');
     }
 
     styleText(text) {
@@ -602,14 +604,16 @@ export class Parser {
         }
     }
 
-    blockquote() {
+    blockquote(count = 1) {
         let res = '';
+        let bgn = `<blockquote>`.repeat(count);
+        let end = `</blockquote>`.repeat(count); 
 
         for (;;) {
             res += this.text2({});
             switch (this.next.type) {
                 case TokenType.EOF:
-                    return `<blockquote>${res}</blockquote>`;
+                    return `${bgn}${res}${end}`;
 
                 case TokenType.LINE_BREAK:
                     if (this.previous.type !== TokenType.NL_ESCAPE) {
@@ -619,7 +623,7 @@ export class Parser {
 
                 case TokenType.PARAGRAPH_BREAK:
                     this.consume();
-                    return `<blockquote>${res}</blockquote>`;
+                    return `${bgn}${res}${end}`;
 
                 case TokenType.LEFT_BRACK: {
                     this.consume();
@@ -628,10 +632,10 @@ export class Parser {
                         this.check(TokenType.PARAGRAPH_BREAK)) &&
                         this.previous.type === TokenType.RIGHT_BRACK) {
                         this.consume();
-                        return `<blockquote>\
+                        return `${bgn}\
                                     ${res}\
                                     ${rest}\
-                                </blockquote>`;
+                                ${end}`;
                     }
                     res += rest;
                     break;
@@ -823,12 +827,14 @@ export class Parser {
                 main = this.codeblock();
                 break;
 
-            case TokenType.HYPHEN:
-                if (this.next.text.length === 3) {
+            case TokenType.HYPHEN: {
+                let len = this.next.text.length;
+                if (len % 3 === 0) {
                     this.consume();
-                    main = this.blockquote();
+                    main = this.blockquote(len / 3);
                 } else main = this.paragraph();
                 break;
+            }
 
             case TokenType.UL_SYMB:
                 main = this.unordered();
