@@ -79,6 +79,7 @@ moreover, the expansion button still appears.
 + add automatic link parsing -- **done!!**
 + add list aliases "[]" -- **done!!**
 + add blockquote author field -- **done!!**
++ add multiple blockquote levels
 + add inline code spans -- **done!!**
 + add code blocks -- **done!!**
 + add character escapes -- **done!!**
@@ -102,8 +103,41 @@ expandable "read more.." button next to them on the last line or whatever. maybe
 + add tables.
 `
 
+// I am not adding any mechanisms of concealment, pop-ups, and the like.
+// Tentatively, I maintain that such features are more distracting than
+// not in a reading, as they demand constant tactile and manual
+// manipulation, block other parts of the screen at the same time, and
+// do not allow easy use of the eyes. And, immanent to its construction,
+// these problems only balloon in scale as the text gets larger, and
+// must be limited in size on a practical level.
+//
+// A flaw in my conception is that I have made it transhistorical.
+// Moreover, it is not within a general overarching logic. But that is
+// unavoidable. I do not have such a conception of the algorithm yet,
+// and thus, neither do I have it concerning coding.
+// 
+// Inversely, it might be a good idea to give links previews to reduce
+// this very same process. The preview should act as though it is a
+// part of the linear structure while open. The use of color can act
+// as a mode of delineation, and the split paragraph (when applicable)
+// should be trailed by "..." on both sides.
+
 const textarea = document.querySelector(".tab-body textarea");
 const prev_dsp = document.querySelector(".tab-body .preview-display");
+const upld_btn = document.querySelector("input.upload-btn");
+
+function uploadText(event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        let str = evt.target.result;
+        if (evt !== '') {
+            textarea.textContent = str;
+            updateTextarea(event);
+        }
+    };
+    reader.readAsText(file);
+}
 
 function updateTextarea(event) {
     const template = document.createElement("template");
@@ -113,7 +147,6 @@ function updateTextarea(event) {
     template.innerHTML = str;
     prev_dsp.replaceChildren(template.content);
 }
-
 
 function truncateAsides() {
     document.querySelectorAll('.aside-segment').forEach(sg => {
@@ -145,15 +178,12 @@ function loadDefaultText(ev) {
     updateTextarea(ev);
 }
 
-window.addEventListener('load', loadDefaultText);
-window.addEventListener('load', truncateAsides);
-window.addEventListener('resize', truncateAsides);
+// because we aren't able to assign callbacks to the buttons
+// when they are initialized, we have to do this shit instead.
+// this is where react would turn in handy.
 
-textarea.addEventListener('input', updateTextarea);
-textarea.addEventListener('input', truncateAsides);
-
-document.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.aside-btn');
+function buttonToggleAsideView(event) {
+    const btn = event.target.closest('.aside-btn');
     if (!btn) return;
 
     const asideSeg = btn.closest('.aside-segment');
@@ -174,4 +204,14 @@ document.addEventListener('click', (ev) => {
         aside.classList.add('expanded');
         btn.innerText = '...less';
     }
-})
+}
+
+window.addEventListener('load', loadDefaultText);
+window.addEventListener('load', truncateAsides);
+window.addEventListener('resize', truncateAsides);
+
+textarea.addEventListener('input', updateTextarea);
+textarea.addEventListener('input', truncateAsides);
+upld_btn.addEventListener('change', uploadText);
+
+document.addEventListener('click', buttonToggleAsideView);
