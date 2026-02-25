@@ -13,14 +13,14 @@ function uploadText(event) {
         if (evt !== '') {
             textarea.value = str;
             updateTextarea(event);
-            createUploadInput(); // apparently, you can't remove files
-                                 // so i gotta remake the entire thing
+            refreshUploadInput(); // apparently, you can't remove files
+                                  // so i gotta remake the entire thing
         }
     };
     reader.readAsText(file);
 }
 
-function createUploadInput() {
+function refreshUploadInput() {
     const prev_inps = upld_dsp.querySelectorAll("input");
     if (prev_inps.length > 0) {
         while (upld_dsp.firstChild) {
@@ -42,7 +42,7 @@ function updateTextarea(ev) {
 function loadDefaultText(ev) {
     textarea.value = def_text;
     updateTextarea(ev);
-    createUploadInput();
+    refreshUploadInput();
 }
 
 window.onload = (e) => {
