@@ -145,6 +145,7 @@ body {
 .ml-root:not(.show-asides) *.segment {
     display: inline-block;
     line-height: var(--global-line-height);
+    column-gap: 5em;
 }
 
 .main-segment, .aside-segment {

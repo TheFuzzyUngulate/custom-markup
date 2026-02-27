@@ -98,5 +98,7 @@ expandable "read more.." button next to them on the last line or whatever. maybe
 +++ second, a character-level link that can appear anywhere and is visible in the final result as a link symbol. call this a bookmark.
 ++ both types can be referenced anywhere with a character that acts as a link to whatever it is.
 ++ when a paragraph is linked to, it shines.
++ add function spans: \`[func|par1|par2]\`
++ add function segments \`\`
 + add tables.
 `.trim();
