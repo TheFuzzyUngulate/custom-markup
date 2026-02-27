@@ -606,8 +606,8 @@ export class Parser {
 
     blockquote(count = 1) {
         let res = '';
-        let bgn = `<blockquote>`.repeat(count);
-        let end = `</blockquote>`.repeat(count); 
+        let bgn = '<blockquote>'.repeat(count);
+        let end = '</blockquote>'.repeat(count);
 
         for (;;) {
             res += this.text2({});
@@ -640,6 +640,11 @@ export class Parser {
                     res += rest;
                     break;
                 }
+
+                case TokenType.RIGHT_BRACK:
+                    this.consume();
+                    res += ']';
+                    break;
             }
         }
     }
@@ -878,6 +883,6 @@ export class Parser {
             result += this.block();
         }
 
-        return result;
+        return `<div class="ml-root">${result}</div>`;
     }
 }

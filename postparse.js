@@ -24,12 +24,11 @@ function buttonToggleAsideView(ev) {
     }
 }
 
-function asideTruncateIfOverflow(asideSeg) {
-    const main = asideSeg.parentNode.querySelector('.main-content');
-    const aside = asideSeg.querySelector('.aside-content');
-    if (!aside) return;
+function asideTruncateIfOverflow(aside) {
+    const seg  = aside.parentNode;
+    const main = seg.parentNode.querySelector('.main-content');
 
-    const btn = asideSeg.querySelector('.aside-btn');
+    const btn = seg.querySelector('.aside-btn');
     const mainHeight = main.scrollHeight;
     const asideHeight = aside.scrollHeight;
 
@@ -66,18 +65,32 @@ function handleAsideBtnToggle(element) {
     element.addEventListener('click', buttonToggleAsideView);
 }
 
-function applyOpsInTemplate(template) {
-    for (let e of template.content.children) {
-        let curr, walker;
-
-        walker = document.createTreeWalker(e, NodeFilter.SHOW_ELEMENT);
-        while ((curr = walker.nextNode()) !== null) {
-            if (curr.classList.contains('aside-btn')) {
-                handleAsideBtnToggle(curr);
-            } else if (curr.classList.contains('aside-segment')) {
-                handleAsideHeight(curr);
-            }
+function applyOpsInTemplate(template)
+{
+    var ml_root   = template.content.children[0];
+    var hasAsides = false;
+    var current   = undefined;
+    var walker    = document.createTreeWalker(
+        ml_root, 
+        NodeFilter.SHOW_ELEMENT
+    );
+    var observer  = new ResizeObserver(entries => {
+        for (let entry of entries) {
+            asideTruncateIfOverflow(entry.target);
         }
+    });
+
+    while ((current = walker.nextNode()) !== null) {
+        if (current.classList.contains('aside-btn')) {
+            handleAsideBtnToggle(current);
+        } else if (current.classList.contains('aside-content')) {
+            hasAsides = true;
+            observer.observe(current);
+        }
+    }
+
+    if (hasAsides) {
+        ml_root.classList.add('show-asides');
     }
 }
 

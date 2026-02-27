@@ -13,6 +13,7 @@
 :root {
     --global-color-primary: black;
     --global-color-secondary: red;
+    --global-color-tertiary: gray;
 }
 
 :root {
@@ -104,43 +105,58 @@ body {
 }
 
 .tab-body .preview-display {
-    display: flex;
-    flex-direction: column;
-    row-gap: var(--global-line-height);
     width: 100%;
     height: 100%;
     background-color: white;
     overflow-y: scroll;
+}
+
+/* Markdown elements */
+
+.ml-root {
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--global-line-height);
     font-size: var(--font-size-medium);
     font-family: var(--font-family-prev-default);
     padding: 15px;
     color: var(--global-color-primary);
+    overflow-y: hidden;
 }
 
-.preview-display h1, .preview-display h2,
-.preview-display h3, .preview-display h4,
-.preview-display h5, .preview-display h6 {
+.ml-root h1, .ml-root h2,
+.ml-root h3, .ml-root h4,
+.ml-root h5, .ml-root h6 {
     font-weight: var(--font-weight-normal);
     margin: 0 0 1rem 0;
 }
 
-.preview-display a, .preview-display button {
+.ml-root a, .ml-root button {
     color: var(--global-color-secondary);
 }
 
-.preview-display .segment {
+.ml-root.show-asides *.segment {
     display: grid;
     grid-template-columns: 3fr 1fr;
     line-height: var(--global-line-height);
     column-gap: 5em;
 }
 
-/* Markdown elements */
+.ml-root:not(.show-asides) *.segment {
+    display: inline-block;
+    line-height: var(--global-line-height);
+}
+
+.main-segment, .aside-segment {
+    overflow-wrap: break-word;
+    hyphens: manual;
+}
 
 .quote-cit {
     margin-top: 5px;
     text-align: right;
     margin-right: 10px;
+    color: var(--global-color-primary);
 }
 
 .quote-cit::before {
@@ -161,7 +177,7 @@ code {
 
 blockquote {
     margin-left: 2em;
-    /* font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif */
+    color: var(--global-color-tertiary);
 }
 
 aside {
