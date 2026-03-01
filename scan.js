@@ -16,6 +16,12 @@ export const TokenType = {
     HEADER_SYMB: 14,
     LEFT_BRACK: 15,
     RIGHT_BRACK: 16,
+    REFERENCE: 17,
+    SELECT: 18
+}
+
+function charIsAlnum(char) {
+    return char !== null && /^[A-Za-z0-9]$/.test(char);
 }
 
 function charIsSafe(char) {
@@ -81,6 +87,51 @@ export class Scanner {
         )
     }
 
+    checkWordSpan() {
+        while (charIsSafe(this.peek())) {
+            this.advance();
+        } return this.makeToken(TokenType.WORD_SPAN);
+    }
+
+    checkSelect() {
+        if (this.peek() === '<') {
+            if (!charIsAlnum(this.peekNext())) {
+                return this.checkWordSpan();
+            }
+
+            this.advance()
+            this.advance();
+
+            while (charIsAlnum(this.peek())) {
+                this.advance();
+            }
+
+            if (this.peek() === '>') {
+                this.advance();
+                return this.makeToken(TokenType.SELECT);
+            }
+        }
+
+        return this.checkWordSpan();
+    }
+
+    checkReference() {
+        if (this.peek() === '$') {
+            if (!charIsAlnum(this.peekNext())) {
+                return this.checkWordSpan();
+            }
+
+            this.advance();
+            this.advance();
+
+            while (charIsAlnum(this.peek())) {
+                this.advance();
+            } return this.makeToken(TokenType.REFERENCE);
+        }
+
+        return this.checkWordSpan();
+    }
+
     scan()
     {    
         this.start = this.current;
@@ -100,6 +151,8 @@ export class Scanner {
             case '*': return this.makeToken(TokenType.EMPH_SYMB);
             case '[': return this.makeToken(TokenType.LEFT_BRACK);
             case ']': return this.makeToken(TokenType.RIGHT_BRACK);
+            case '$': return this.checkSelect();
+            case '>': return this.checkReference();
             
             case '`': 
                 if (this.peek() === '`' && this.peekNext() === '`') {
@@ -134,7 +187,9 @@ export class Scanner {
                 } return this.makeToken(TokenType.WORD_SPAN);
 
             case '#': 
-                while (this.peek() === '#') this.advance();
+                while (this.peek() === '#') {
+                    this.advance();
+                }
                 if (this.peek() === ' ') {
                     this.advance();
                     return this.makeToken(TokenType.OL_SYMB);
@@ -162,10 +217,7 @@ export class Scanner {
                     this.advance();
                 } return this.makeToken(TokenType.WORD_SPAN); 
 
-            default:
-                while (charIsSafe(this.peek())) {
-                    this.advance();
-                } return this.makeToken(TokenType.WORD_SPAN);
+            default: return this.checkWordSpan();
         }
     }
 }

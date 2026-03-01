@@ -65,7 +65,19 @@ function handleAsideBtnToggle(element) {
     element.addEventListener('click', buttonToggleAsideView);
 }
 
-function applyOpsInTemplate(template)
+function handleSelectLinkage(element, refKeys) {
+    const info = element.id.split('_');
+    const key = info[1];
+
+    if (key in refKeys) {
+        let values = refKeys[key].values;
+        if (values.length > 0) {
+            element.href = `#${values[0]}`;
+        }
+    }
+}
+
+function applyOpsInTemplate(template, refKeys)
 {
     var ml_root   = template.content.children[0];
     var hasAsides = false;
@@ -86,6 +98,8 @@ function applyOpsInTemplate(template)
         } else if (current.classList.contains('aside-content')) {
             hasAsides = true;
             observer.observe(current);
+        } else if (current.classList.contains('pSel')) {
+            handleSelectLinkage(current, refKeys);
         }
     }
 
@@ -100,6 +114,6 @@ export function parseAndFill(text, dest) {
     
     const str = markupParse.doc();
     template.innerHTML = str;
-    applyOpsInTemplate(template);
+    applyOpsInTemplate(template, markupParse.refKeys);
     dest.replaceChildren(template.content);
 }

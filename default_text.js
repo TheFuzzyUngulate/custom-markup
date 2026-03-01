@@ -72,6 +72,35 @@ the text that displays in the preview depends on the default length of the block
 ...
 moreover, the expansion button still appears.
 
+This contains a selected span: \`>\$seg\{a linked span\}\`
+Conversely, this contains a reference \`\$<seg>\`.
+
+\`>\$seg2\` This is a segment reference.
+It cannot be referenced within its own segment.
+
+However, the segment reference is linked like this: \`\$<seg2>\`.
+Note that, unlike hrefs, these do not appear as aliases.
+
+The problem is where these are to be stored. These are products of the parsing step, so it's not enough yet.
+In the parser, you may record instances of the span selects as ranges, store the ranges in a library with the reference name as a key.
+The dictionary should be sorted by first addition so that it can be referenced by index visually.
+
+Specifically, each keyword may be associated with either a paragraph-select, or a span-select.
+So the dictionary contains, for each keyword, the associated paragraph-selects and span-selects.
+Each keyword can also be associated with multiple references.
+Since a keyword may be referenced before being associated with a selection, no checks can happen initially.
+In fact, all checking must be at a post-parsing step, where the first thing checked is if each keyword has at least one select.
+If a keyword lacks selects, the references are not rendered.
+
+In actual rendering, a paragraph select is a class that is attached to the content div.
+Asides cannot be selected. Also, the references are empty spans of some class.
+The post step fills them with the relevant material.
+
+>$t This paragraph contains a reference.
+This can be used to link to it, among other things.
+
+This paragraph refers to it: $<t>
+
 == Things to do
 
 + add automatic link parsing -- **done!!**
@@ -95,7 +124,14 @@ expandable "read more.." button next to them on the last line or whatever. maybe
 + add in-document links (and markers for references, for those links)
 ++ implement two types of links:
 +++ first, a paragraph-level link which should appear first in the paragraph.
-+++ second, a character-level link that can appear anywhere and is visible in the final result as a link symbol. call this a bookmark.
+++++ symbol could be \`>$\` with a keyword immediately after
++++ second, a span-level link that can appear anywhere, can collect anything, and so on.
+++++ this should be able to contain any large span of elements
+++++ the symbol can be the same \`>$\`, followed by double braces which contain the rest.
+++++ this can start within a line, end in another line, and so on.
+++++ because of the linear representation of the entire thing, it's easy to do this.
+++++ but you might want discrete blocks to be 'the same highlight', so each one should have its list of elements and character ranges within them.
++++ a bookmark to a link looks like \`$<\` with a keyword and then \`>\`.
 ++ both types can be referenced anywhere with a character that acts as a link to whatever it is.
 ++ when a paragraph is linked to, it shines.
 + add function spans: \`[func|par1|par2]\`

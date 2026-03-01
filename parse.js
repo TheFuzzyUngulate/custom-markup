@@ -8,6 +8,15 @@ function isValidURL(str) {
     return /^(?:https?:\/\/|www\.)[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)+(?:\/.*)?$/.test(str);
 }
 
+function generateRandom64BitString() {
+    const array = new Uint8Array(4);
+    window.crypto.getRandomValues(array);
+
+    let hexString = '';
+    array.forEach(b => hexString += b.toString(16).padStart(2, '0'));
+    return hexString;
+}
+
 export class Parser {
     constructor(text) {
         this.text          = text;
@@ -15,6 +24,8 @@ export class Parser {
         this.previous      = null;
         this.next          = null;
         this.pendingTokens = [];
+        this.refKeys       = {};
+        this.refKeyCount   = 0;
 
         this.consume();
     }
@@ -330,6 +341,25 @@ export class Parser {
         }
     }
 
+    funcSpan(res) {
+        // the contents are split by the '|' divider.
+        // the first of the internal strings is always the function name.
+        // the rest depend on the first.
+        // anyway, I can't think of anything yet but when I do...
+
+        const opers = res.split('|');
+        const fname = opers[0];
+
+        switch (fname) {
+            default:
+                return `<span class="func-span">${res}</span>`;
+        }
+    }
+
+    quoteCit(res) {
+        return `<p class="quote-cit">${res}</p>`;
+    }
+
     bracketed({takesEmph=true, takesURLs=true, context=''}) {
         let res = this.text2({
             takesURLs: takesURLs,
@@ -342,12 +372,12 @@ export class Parser {
                 case 'blockquote':
                     if (this.check(TokenType.EOF) ||
                         this.check(TokenType.PARAGRAPH_BREAK)) {
-                        return `<p class="quote-cit">${res}</p>`;
+                        return this.quoteCit(res);
                     }
                     break;
             }
 
-            return `<span class="func">${res}</span>`;
+            return this.funcSpan(res);
         }
 
         return `[${res}`;
@@ -395,16 +425,89 @@ export class Parser {
         }
     }
 
+    createReference() {
+        // check if dictionary contains key
+        // if it does, you get the value of the key (an array)
+        // then you add an ID of the paragraph as a value of the key
+        // the paragraph ID is a random 32-bit key in hex notation
+
+        // i'm a bit frustrated that I did not find the solution
+        // immanent to the problem. but i haven't done any preliminary
+        // work in that direction. it was inevitable.
+
+        const txt = this.previous.text;
+        const key = txt.substring(2);
+        const pID = `pIDkw_${generateRandom64BitString()}`;
+
+        if (!(key in this.refKeys)) {
+            this.refKeys[key] = {
+                index: ++this.refKeyCount, 
+                values: [pID],
+                selectCount: 0
+            };
+        } else {
+            this.refKeys[key].values.push(pID);
+        }
+
+        return `<span class="pRef" id="${pID}"></span>`;
+    }
+
+    createSelect() {
+        // check if dictionary contains key
+        // if it does, then just get the index of the key
+        // if it doesn't, create the key
+        // either way, just generate an element with a link, <a> maybe
+        // selects don't need to be stored, they'll be handled fully in
+        // ...the postparse.
+
+        const txt = this.previous.text;
+        const key = txt.substring(2, txt.length - 1);
+
+        // get the index of the key.
+        // or set it, as the case may be.
+
+        let idx = 0;
+        if (!(key in this.refKeys)) {
+            idx = ++this.refKeyCount;
+            this.refKeys[key] = {
+                index: idx, 
+                values: [],
+                selectCount: 1
+            };
+        } else {
+            idx = this.refKeys[key].index;
+            this.refKeys[key].selectCount++;
+        }
+
+        // right now, href is empty
+        // but once the correct ids are in place, it will contain
+        // the first value attached to this select's key.
+        // that's a postparse step, though.
+
+        const selectCount = this.refKeys[key].selectCount;
+        return `<sup>
+                    <a class="pSel" id="Rkw_${key}_${selectCount}">
+                        [${idx}]
+                    </a>
+                </sup>`;
+    }
+
     line({takesEmph=true, takesURLs=true}) {
         let res = '';
 
         while (!this.check(TokenType.EOF) &&
                !this.check(TokenType.PARAGRAPH_BREAK) &&
                !this.check(TokenType.LINE_BREAK)) {
-            res += this.text3({
+            let str = this.text3({
                 takesEmph: takesEmph,
                 takesURLs: takesURLs
             });
+
+            if (str === '') break; 
+            else if (this.check(TokenType.SELECT)) {
+                this.consume();
+                res += str + this.createSelect();
+            } else res += str;
         }
 
         if (res === '') {
@@ -417,18 +520,24 @@ export class Parser {
     paragraph() {
         let res = '';
 
+        // here, you would search for the paragraph select symbol
+        if (this.check(TokenType.REFERENCE)) {
+            this.consume();
+            res += this.createReference();
+        }
+
         for (;;) {
             res += this.line({});
             switch (this.next.type) {
+                case TokenType.REFERENCE:
+                case TokenType.SELECT:
                 case TokenType.LINE_BREAK:
                     this.consume();
                     break;
 
-                case TokenType.EOF:
-                    return res;
-
                 case TokenType.PARAGRAPH_BREAK:
                     this.consume();
+                case TokenType.EOF:
                     return res;
             }
         }
@@ -462,9 +571,9 @@ export class Parser {
                         this.check(TokenType.PARAGRAPH_BREAK)) &&
                         this.previous.type === TokenType.RIGHT_BRACK) {
                         this.consume();
-                        return `${bgn}\
-                                    ${res}\
-                                    ${rest}\
+                        return `${bgn}
+                                    ${res}
+                                    ${rest}
                                 ${end}`;
                     }
                     res += rest;
